@@ -1,0 +1,13 @@
+family,scale,seed,latent_mse,idm_accuracy,total_label_cost_seconds,run_mode,episode_count
+baseline,13,0,0.165761,,0.0,deterministic_cpu_proxy,13
+baseline,13,1,0.166887,,0.0,deterministic_cpu_proxy,13
+baseline,13,2,0.162232,,0.0,deterministic_cpu_proxy,13
+textual,13,0,0.152941,,0.003872,deterministic_cpu_proxy,13
+textual,13,1,0.152157,,0.003872,deterministic_cpu_proxy,13
+textual,13,2,0.155839,,0.003872,deterministic_cpu_proxy,13
+perceptive,13,0,0.136749,,2.769283,deterministic_cpu_proxy,13
+perceptive,13,1,0.138144,,2.769283,deterministic_cpu_proxy,13
+perceptive,13,2,0.140648,,2.769283,deterministic_cpu_proxy,13
+hybrid,13,0,0.12966,,2.773155,deterministic_cpu_proxy,13
+hybrid,13,1,0.133827,,2.773155,deterministic_cpu_proxy,13
+hybrid,13,2,0.133841,,2.773155,deterministic_cpu_proxy,13
