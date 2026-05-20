@@ -1,5 +1,7 @@
 # BridgeEngine
 
+Prototype implementation of pi0.7 annotation pipeline on BridgeDataV2
+
 Mode A proof-of-concept data engine and label-value benchmark for robot foundation-model training on BridgeData V2.
 
 BridgeEngine is the smallest useful version of the project: local versioned Parquet snapshots, LEWM-derived label artifacts, DuckDB queries, deterministic training-cut export, and a 4-family x 3-seed latent-MSE benchmark table. It is designed to make the LEWM supervision question reproducible as a data-engine workflow.
