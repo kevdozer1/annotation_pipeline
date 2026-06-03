@@ -1,0 +1,60 @@
+{
+  "episodes": [
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 4,
+          "reason": "The robot completes the requested placement with minor uncertainty."
+        },
+        "subgoals": [
+          {
+            "frame_idx": 8,
+            "segment_idx": 0
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 8,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "approach and grasp object"
+          }
+        ]
+      },
+      "episode_id": "example_episode_000000",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 9,
+      "review_notes": "",
+      "task": "put object in target"
+    }
+  ],
+  "instructions": "Fill the gold fields by confirming or correcting the auto labels. Leave auto fields unchanged.",
+  "schema_version": "gold_set_v1",
+  "snapshot_id": "example_snapshot"
+}
