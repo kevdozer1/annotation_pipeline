@@ -32,9 +32,12 @@ SENSOR_COLUMNS = [
 LABEL_COLUMNS = [
     "episode_id",
     "step_idx",
+    "segment_idx",
     "labeler_name",
     "labeler_version",
     "label_payload_path",
+    "metadata_payload_json",
+    "subgoal_image_path",
     "confidence",
     "provenance_json",
     "snapshot_id",
@@ -45,4 +48,3 @@ def empty_labels(snapshot_id: str) -> pd.DataFrame:
     frame = pd.DataFrame(columns=LABEL_COLUMNS)
     frame["snapshot_id"] = frame.get("snapshot_id", pd.Series(dtype="str"))
     return frame
-

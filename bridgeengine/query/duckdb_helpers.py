@@ -68,33 +68,36 @@ def preview(snapshot_id: str, data_root: str | Path | None = None) -> dict[str, 
 
 def demo_queries() -> dict[str, str]:
     return {
-        "mask_coverage": """
+        "subtask_coverage": """
             SELECT e.episode_id, e.language_instruction, l.confidence
             FROM episodes e
             JOIN labels l ON l.episode_id = e.episode_id
-            WHERE l.labeler_name = 'masks'
+            WHERE l.labeler_name = 'subtask_segmenter'
               AND l.confidence > 0.7
             ORDER BY l.confidence DESC
         """,
-        "caption_put": """
-            SELECT e.episode_id, l.label_payload_path
-            FROM episodes e
-            JOIN labels l ON l.episode_id = e.episode_id
-            WHERE l.labeler_name = 'captions'
-              AND json_extract_string(l.provenance, '$.caption_text') LIKE '%put%'
-            ORDER BY e.episode_id
-        """,
-        "caption_depth_range": """
+        "metadata_quality": """
             SELECT
               e.episode_id,
               e.language_instruction,
-              CAST(json_extract_string(d.provenance, '$.depth_max') AS DOUBLE)
-                - CAST(json_extract_string(d.provenance, '$.depth_min') AS DOUBLE) AS depth_dynamic_range,
-              json_extract_string(c.provenance, '$.caption_text') AS caption_text
+              CAST(json_extract_string(l.metadata_payload_json, '$.quality') AS INTEGER) AS quality,
+              CAST(json_extract_string(l.metadata_payload_json, '$.mistake') AS BOOLEAN) AS mistake,
+              json_extract_string(l.metadata_payload_json, '$.control_mode') AS control_mode
             FROM episodes e
-            JOIN labels c ON c.episode_id = e.episode_id AND c.labeler_name = 'captions'
-            JOIN labels d ON d.episode_id = e.episode_id AND d.labeler_name = 'depth'
-            ORDER BY depth_dynamic_range DESC
+            JOIN labels l ON l.episode_id = e.episode_id
+            WHERE l.labeler_name = 'episode_metadata'
+            ORDER BY quality DESC, e.episode_id
+        """,
+        "subgoal_paths": """
+            SELECT
+              e.episode_id,
+              l.segment_idx,
+              e.language_instruction,
+              l.subgoal_image_path
+            FROM episodes e
+            JOIN labels l ON l.episode_id = e.episode_id
+            WHERE l.labeler_name = 'subgoal_images'
+            ORDER BY e.episode_id, l.segment_idx
         """,
         "labeler_success_counts": """
             SELECT
@@ -106,17 +109,19 @@ def demo_queries() -> dict[str, str]:
             GROUP BY labeler_name
             ORDER BY labeler_name
         """,
-        "provenance_trace": """
+        "pi07_prompt_trace": """
             SELECT
               e.episode_id,
-              l.labeler_name,
-              l.labeler_version,
-              json_extract_string(l.provenance, '$.input_sha256') AS input_sha256,
-              CAST(json_extract_string(l.provenance, '$.wall_clock_seconds') AS DOUBLE) AS seconds
+              'Task: ' || e.language_instruction ||
+              '. Speed: ' || json_extract_string(m.metadata_payload_json, '$.speed') ||
+              '. Quality: ' || json_extract_string(m.metadata_payload_json, '$.quality') || '/5' ||
+              '. Mistake: ' || json_extract_string(m.metadata_payload_json, '$.mistake') ||
+              '. Control Mode: ' || json_extract_string(m.metadata_payload_json, '$.control_mode') || '.' AS prompt_prefix,
+              s.label_payload_path AS subtask_segments_json
             FROM episodes e
-            JOIN labels l ON l.episode_id = e.episode_id
+            JOIN labels s ON s.episode_id = e.episode_id AND s.labeler_name = 'subtask_segmenter'
+            JOIN labels m ON m.episode_id = e.episode_id AND m.labeler_name = 'episode_metadata'
             WHERE e.episode_id = (SELECT episode_id FROM episodes ORDER BY episode_id LIMIT 1)
-            ORDER BY l.labeler_name
         """,
     }
 

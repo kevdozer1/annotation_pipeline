@@ -28,10 +28,17 @@ def export_cut(
         episode_ids = _resolve_episode_ids(con, filter_sql)
         label_rows = con.execute(
             """
-            SELECT episode_id, labeler_name, label_payload_path, labeler_version
+            SELECT
+              episode_id,
+              labeler_name,
+              label_payload_path,
+              labeler_version,
+              segment_idx,
+              metadata_payload_json,
+              subgoal_image_path
             FROM labels
             WHERE episode_id IN (SELECT * FROM selected_episode_ids)
-            ORDER BY episode_id, labeler_name
+            ORDER BY episode_id, labeler_name, segment_idx
             """
         ).fetchall()
         episode_rows = con.execute(
@@ -45,10 +52,17 @@ def export_cut(
     finally:
         con.close()
 
-    label_paths: dict[str, dict[str, str]] = {episode_id: {} for episode_id in episode_ids}
+    label_paths: dict[str, dict[str, list[dict[str, Any]]]] = {episode_id: {} for episode_id in episode_ids}
     labeler_versions: dict[str, str] = {}
-    for episode_id, labeler_name, path, version in label_rows:
-        label_paths[episode_id][labeler_name] = path
+    for episode_id, labeler_name, path, version, segment_idx, metadata_payload_json, subgoal_image_path in label_rows:
+        label_paths[episode_id].setdefault(labeler_name, []).append(
+            {
+                "payload_path": path,
+                "segment_idx": int(segment_idx) if segment_idx is not None else None,
+                "metadata_payload_json": metadata_payload_json,
+                "subgoal_image_path": subgoal_image_path,
+            }
+        )
         labeler_versions[labeler_name] = version
     episode_sources = {
         row[0]: {

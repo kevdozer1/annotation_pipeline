@@ -12,8 +12,8 @@ from .base import LabelResult, episode_id_from_path, sha256_file
 
 
 class MaskLabeler:
-    name = "masks"
-    version = LABELER_VERSIONS["masks"]
+    name = "perceptive_masks"
+    version = LABELER_VERSIONS["perceptive_masks"]
 
     def __init__(self, output_root: Path):
         self.output_root = output_root
@@ -75,4 +75,3 @@ def _dilate_stack(mask_stack: np.ndarray, radius: int) -> np.ndarray:
         dilated = image.filter(ImageFilter.MaxFilter(size=size))
         out.append(np.asarray(dilated) > 0)
     return np.stack(out, axis=0)
-

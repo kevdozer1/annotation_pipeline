@@ -18,9 +18,9 @@ def write_bar_chart(results_csv: Path, output_path: Path) -> Path:
     )
     colors = {
         "baseline": "#5B6770",
-        "textual": "#247BA0",
-        "perceptive": "#2E7D32",
-        "hybrid": "#8C5E2A",
+        "rich_text": "#247BA0",
+        "rich_text_metadata": "#2E7D32",
+        "rich_text_metadata_subgoal": "#8C5E2A",
     }
     fig, ax = plt.subplots(figsize=(7, 4.2))
     ax.bar(
@@ -32,11 +32,10 @@ def write_bar_chart(results_csv: Path, output_path: Path) -> Path:
     )
     ax.set_ylabel("Latent prediction MSE")
     ax.set_xlabel("Annotation family")
-    ax.set_title("BridgeEngine Label-Value Benchmark, 13 episodes")
+    ax.set_title("BridgeEngine Rich-Prompt Benchmark, 13 episodes")
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
     return output_path
-

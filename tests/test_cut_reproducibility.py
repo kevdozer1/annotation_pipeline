@@ -9,7 +9,7 @@ from bridgeengine.orchestrate import run_labelers
 
 def test_export_cut_is_reproducible(tmp_path: Path) -> None:
     result = ingest_bridge_v2(source="synthetic", episodes=3, data_root=tmp_path)
-    run_labelers(result["snapshot_id"], data_root=tmp_path)
+    run_labelers(result["snapshot_id"], data_root=tmp_path, allow_fallback=True)
     out = tmp_path / "cuts"
     export_cut(result["snapshot_id"], "TRUE", out, "cut_a", data_root=tmp_path)
     first_manifest = (out / "cut_a" / "manifest.json").read_bytes()
@@ -21,4 +21,3 @@ def test_export_cut_is_reproducible(tmp_path: Path) -> None:
     sample = dataset[0]
     assert sample["actions"].ndim == 2
     assert sample["labels"]
-

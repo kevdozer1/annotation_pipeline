@@ -18,7 +18,7 @@ st.set_page_config(page_title="BridgeEngine", layout="wide")
 
 def main() -> None:
     st.title("BridgeEngine")
-    st.caption("Mode A snapshot viewer for BridgeData episodes, LEWM annotations, queries, and benchmark artifacts.")
+    st.caption("Mode A snapshot viewer for BridgeData episodes, pi0.7-style annotations, queries, and benchmark artifacts.")
 
     root = Path(st.sidebar.text_input("BridgeEngine data root", str(resolve_data_root()))).expanduser()
     bridge_root = Path(st.sidebar.text_input("BridgeData root", "D:/bridgedata_v2_subset")).expanduser()
@@ -45,10 +45,16 @@ def main() -> None:
     episode_id = selected.split(" - ", 1)[0]
     episode = episodes.loc[episodes["episode_id"] == episode_id].iloc[0].to_dict()
     episode_labels = labels.loc[labels["episode_id"] == episode_id]
-    label_map = {
-        row["labeler_name"]: row.to_dict()
-        for _, row in episode_labels.iterrows()
-    }
+    label_map: dict[str, Any] = {}
+    for _, row in episode_labels.iterrows():
+        item = row.to_dict()
+        name = item["labeler_name"]
+        if name in label_map:
+            if not isinstance(label_map[name], list):
+                label_map[name] = [label_map[name]]
+            label_map[name].append(item)
+        else:
+            label_map[name] = item
     episode_path = Path(episode["source_path_meta"]).parent
     frames = _load_frames(episode_path)
 
@@ -112,10 +118,10 @@ def _render_episode(episode: dict[str, Any], frames: np.ndarray | None, label_ma
         video_path = Path(episode["source_path_video"])
         if video_path.exists() and video_path.stat().st_size > 128:
             st.video(str(video_path))
-        caption = _load_caption(label_map.get("captions"))
-        if caption:
-            st.subheader("Caption")
-            st.write(caption)
+        prompt = _load_prompt_preview(episode, label_map)
+        if prompt:
+            st.subheader("pi0.7 Prompt Preview")
+            st.code(prompt, language="text")
 
 
 def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: dict[str, dict]) -> None:
@@ -128,49 +134,85 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
     if frames is not None:
         frame_idx = st.slider("Annotation frame", 0, int(frames.shape[0] - 1), int(frames.shape[0] // 2), key="anno_frame")
 
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown("**Mask overlay**")
-        image = _mask_overlay(frames, label_map.get("masks"), frame_idx)
-        if image is not None:
-            st.image(image, use_container_width=True)
+    rich_cols = st.columns([1.2, 1])
+    with rich_cols[0]:
+        st.markdown("**Subtask Segments**")
+        segments = _load_segments(label_map.get("subtask_segmenter"))
+        if segments:
+            st.dataframe(pd.DataFrame(segments), use_container_width=True, hide_index=True)
         else:
-            st.info("No mask payload available.")
-    with cols[1]:
-        st.markdown("**Depth**")
-        image = _depth_image(label_map.get("depth"), frame_idx)
-        if image is not None:
-            st.image(image, use_container_width=True)
+            st.info("No subtask segment payload available.")
+    with rich_cols[1]:
+        st.markdown("**Episode Metadata**")
+        metadata = _load_metadata(label_map.get("episode_metadata"))
+        if metadata:
+            st.json(metadata)
         else:
-            st.info("No depth payload available.")
-    with cols[2]:
-        st.markdown("**Tracks**")
-        fig = _track_figure(frames, label_map.get("tracks"), frame_idx)
-        if fig is not None:
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
-        else:
-            st.info("No track payload available.")
+            st.info("No episode metadata payload available.")
+
+    st.markdown("**Subgoal Images**")
+    subgoals = _subgoal_rows(label_map)
+    if subgoals:
+        cols = st.columns(min(4, len(subgoals)))
+        for i, row in enumerate(subgoals):
+            with cols[i % len(cols)]:
+                path = Path(row["subgoal_image_path"])
+                if path.exists():
+                    st.image(str(path), caption=f"segment {row['segment_idx']}", use_container_width=True)
+    else:
+        st.info("No subgoal image payloads available.")
+
+    with st.expander("Perception comparison artifacts"):
+        cols = st.columns(3)
+        with cols[0]:
+            st.markdown("**Mask overlay**")
+            image = _mask_overlay(frames, label_map.get("perceptive_masks") or label_map.get("masks"), frame_idx)
+            if image is not None:
+                st.image(image, use_container_width=True)
+            else:
+                st.info("No mask payload available.")
+        with cols[1]:
+            st.markdown("**Depth**")
+            image = _depth_image(label_map.get("perceptive_depth") or label_map.get("depth"), frame_idx)
+            if image is not None:
+                st.image(image, use_container_width=True)
+            else:
+                st.info("No depth payload available.")
+        with cols[2]:
+            st.markdown("**Tracks**")
+            fig = _track_figure(frames, label_map.get("perceptive_tracks") or label_map.get("tracks"), frame_idx)
+            if fig is not None:
+                st.pyplot(fig, use_container_width=True)
+                plt.close(fig)
+            else:
+                st.info("No track payload available.")
 
     st.subheader("Label Rows")
     rows = []
-    for name, row in sorted(label_map.items()):
-        provenance = json.loads(row["provenance_json"])
-        rows.append(
-            {
-                "labeler": name,
-                "confidence": row["confidence"],
-                "payload": row["label_payload_path"],
-                "seconds": provenance.get("wall_clock_seconds"),
-                "version": row["labeler_version"],
-            }
-        )
+    for name, row_or_rows in sorted(label_map.items()):
+        row_list = row_or_rows if isinstance(row_or_rows, list) else [row_or_rows]
+        for row in row_list:
+            provenance = json.loads(row["provenance_json"])
+            rows.append(
+                {
+                    "labeler": name,
+                    "segment_idx": row.get("segment_idx"),
+                    "confidence": row["confidence"],
+                    "payload": row["label_payload_path"],
+                    "subgoal": row.get("subgoal_image_path"),
+                    "seconds": provenance.get("wall_clock_seconds"),
+                    "version": row["labeler_version"],
+                }
+            )
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     with st.expander("Provenance JSON"):
-        for name, row in sorted(label_map.items()):
-            st.markdown(f"**{name}**")
-            st.json(json.loads(row["provenance_json"]))
+        for name, row_or_rows in sorted(label_map.items()):
+            row_list = row_or_rows if isinstance(row_or_rows, list) else [row_or_rows]
+            for row in row_list:
+                suffix = f" segment {row.get('segment_idx')}" if row.get("segment_idx") is not None else ""
+                st.markdown(f"**{name}{suffix}**")
+                st.json(json.loads(row["provenance_json"]))
 
 
 def _render_queries(snapshot_id: str, root: Path) -> None:
@@ -236,6 +278,55 @@ def _load_caption(row: dict | None) -> str | None:
     return _read_json(path).get("caption")
 
 
+def _load_segments(row: dict | list | None) -> list[dict]:
+    if isinstance(row, list):
+        row = row[0] if row else None
+    if not row:
+        return []
+    path = Path(row["label_payload_path"])
+    if not path.exists():
+        return []
+    return _read_json(path).get("segments", [])
+
+
+def _load_metadata(row: dict | list | None) -> dict | None:
+    if isinstance(row, list):
+        row = row[0] if row else None
+    if not row:
+        return None
+    if row.get("metadata_payload_json"):
+        return json.loads(row["metadata_payload_json"])
+    path = Path(row["label_payload_path"])
+    if path.exists():
+        return _read_json(path).get("metadata")
+    return None
+
+
+def _load_prompt_preview(episode: dict[str, Any], label_map: dict[str, Any]) -> str | None:
+    segments = _load_segments(label_map.get("subtask_segmenter"))
+    metadata = _load_metadata(label_map.get("episode_metadata"))
+    if not segments:
+        return None
+    subtask = segments[0]["subtask_text"]
+    prompt = f"Task: {episode['language_instruction']}. Subtask: {subtask}."
+    if metadata:
+        prompt += (
+            f" Speed: {metadata['speed']}. Quality: {metadata['quality']}/5."
+            f" Mistake: {str(metadata['mistake']).lower()}."
+            f" Control Mode: {metadata['control_mode']}."
+        )
+    return prompt
+
+
+def _subgoal_rows(label_map: dict[str, Any]) -> list[dict]:
+    rows = label_map.get("subgoal_images")
+    if not rows:
+        return []
+    if not isinstance(rows, list):
+        rows = [rows]
+    return sorted(rows, key=lambda x: x.get("segment_idx") if x.get("segment_idx") is not None else -1)
+
+
 def _mask_overlay(frames: np.ndarray | None, row: dict | None, idx: int) -> Image.Image | None:
     if frames is None or not row:
         return None
@@ -297,4 +388,3 @@ def _read_json(path: Path) -> Any:
 
 if __name__ == "__main__":
     main()
-

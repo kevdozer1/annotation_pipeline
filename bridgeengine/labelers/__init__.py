@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from .captions import CaptionLabeler
-from .depth import DepthLabeler
-from .masks import MaskLabeler
-from .tracks import TrackLabeler
+from .episode_metadata import EpisodeMetadataLabeler
+from .subgoal_images import SubgoalImageLabeler
+from .subtask_segmenter import SubtaskSegmenter
 
-__all__ = ["CaptionLabeler", "DepthLabeler", "MaskLabeler", "TrackLabeler"]
-
+__all__ = [
+    "CaptionLabeler",
+    "EpisodeMetadataLabeler",
+    "SubgoalImageLabeler",
+    "SubtaskSegmenter",
+]

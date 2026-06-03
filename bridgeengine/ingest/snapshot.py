@@ -10,10 +10,12 @@ SNAPSHOT_DATE = "2026_05_11"
 DETERMINISTIC_CREATED_AT_UTC = "2026-05-11T00:00:00Z"
 
 LABELER_VERSIONS: dict[str, str] = {
-    "captions": "moondream2-adapter@poc-local-caption-v0",
-    "masks": "sam3-lewm-port@object_mask.npy-v0",
-    "depth": "video-depth-anything-lewm-port@depth.npy-v0",
-    "tracks": "cotracker3-lewm-port@tracks.npy-v0",
+    "subtask_segmenter": "two-stage-vlm-subtask-segmenter@v2",
+    "episode_metadata": "two-stage-vlm-metadata-judge@v2",
+    "subgoal_images": "pi07-end-of-segment-frame@v1",
+    "perceptive_masks": "sam3-lewm-port@object_mask.npy-v0",
+    "perceptive_depth": "video-depth-anything-lewm-port@depth.npy-v0",
+    "perceptive_tracks": "cotracker3-lewm-port@tracks.npy-v0",
 }
 
 
@@ -72,4 +74,3 @@ def write_manifest(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return manifest
-

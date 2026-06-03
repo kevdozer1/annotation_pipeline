@@ -12,8 +12,8 @@ from .base import LabelResult, episode_id_from_path, sha256_file
 
 
 class DepthLabeler:
-    name = "depth"
-    version = LABELER_VERSIONS["depth"]
+    name = "perceptive_depth"
+    version = LABELER_VERSIONS["perceptive_depth"]
 
     def __init__(self, output_root: Path):
         self.output_root = output_root
@@ -58,4 +58,3 @@ def _synthetic_depth(episode_path: Path) -> np.ndarray:
     x = np.linspace(0.0, 1.0, w, dtype=np.float32)[None, :]
     base = x + y
     return np.stack([(base + i / max(t, 1)).astype(np.float32) for i in range(t)], axis=0)
-

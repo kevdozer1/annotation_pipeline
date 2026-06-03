@@ -19,7 +19,7 @@ class CaptionLabeler:
     """
 
     name = "captions"
-    version = LABELER_VERSIONS["captions"]
+    version = LABELER_VERSIONS["subtask_segmenter"]
 
     def __init__(self, output_root: Path):
         self.output_root = output_root
@@ -78,4 +78,3 @@ def _caption_from_task(task: str, frame_stats: dict) -> str:
     if frame_stats.get("available"):
         stats = f" The clip has {frame_stats['n_frames']} RGB frames."
     return f"A robot manipulation episode where the instruction is to {task}.{stats}"
-

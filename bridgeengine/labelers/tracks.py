@@ -11,8 +11,8 @@ from .base import LabelResult, episode_id_from_path, sha256_file
 
 
 class TrackLabeler:
-    name = "tracks"
-    version = LABELER_VERSIONS["tracks"]
+    name = "perceptive_tracks"
+    version = LABELER_VERSIONS["perceptive_tracks"]
 
     def __init__(self, output_root: Path):
         self.output_root = output_root
@@ -65,4 +65,3 @@ def _synthetic_tracks(episode_path: Path) -> tuple[np.ndarray, np.ndarray]:
         tracks[i] = grid + offset
     visibility = np.ones((t, len(grid)), dtype=bool)
     return tracks, visibility
-

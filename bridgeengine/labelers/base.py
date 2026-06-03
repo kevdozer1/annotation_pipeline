@@ -15,13 +15,16 @@ class LabelResult:
     payload_path: Path
     confidence: float | None
     provenance: dict
+    segment_idx: int | None = None
+    metadata_payload_json: str | None = None
+    subgoal_image_path: Path | None = None
 
 
 class Labeler(Protocol):
     name: str
     version: str
 
-    def label_episode(self, episode_path: Path, snapshot_id: str) -> LabelResult:
+    def label_episode(self, episode_path: Path, snapshot_id: str) -> LabelResult | list[LabelResult]:
         ...
 
 
@@ -50,4 +53,3 @@ def read_metadata(episode_path: Path) -> dict:
 
 def episode_id_from_path(path: Path) -> str:
     return path.name
-
