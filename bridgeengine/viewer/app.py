@@ -101,6 +101,21 @@ def _render_overview(manifest: dict[str, Any], episodes: pd.DataFrame, labels: p
     st.subheader("Manifest")
     st.json(manifest)
 
+    st.subheader("Generated Figures")
+    figure_paths = [
+        Path("figures/quality_summary.png"),
+        Path("figures/snapshot_overview.png"),
+        Path("figures/benchmark_placeholder.png"),
+    ]
+    existing = [path for path in figure_paths if path.exists()]
+    if existing:
+        cols = st.columns(min(3, len(existing)))
+        for idx, path in enumerate(existing):
+            with cols[idx % len(cols)]:
+                st.image(str(path), caption=path.name, use_container_width=True)
+    else:
+        st.info("No figures found. Run `python -m bridgeengine.figures --snapshot <snapshot>`.")
+
 
 def _render_episode(episode: dict[str, Any], frames: np.ndarray | None, label_map: dict[str, dict]) -> None:
     st.subheader(episode["episode_id"])
