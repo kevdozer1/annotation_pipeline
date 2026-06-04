@@ -405,20 +405,26 @@ def _segment_quality_issues(segments: list[dict], task: str, observations: dict 
 
 def _object_like_tokens(text: str) -> list[str]:
     stop = {
+        "after",
         "approach",
         "and",
         "at",
+        "before",
         "carry",
         "destination",
+        "edge",
         "grasp",
+        "leave",
         "lift",
         "move",
         "object",
         "place",
+        "pickup",
         "release",
         "the",
         "to",
         "toward",
+        "withdraw",
         "with",
     }
     tokens = [t.strip(".,:;()[]{}").lower() for t in text.split()]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -134,10 +135,10 @@ def _check_metadata(episode_id: str, metadata: dict[str, Any]) -> list[GateIssue
     if quality is None:
         issues.append(GateIssue(episode_id, "metadata_quality", "missing quality"))
         return issues
-    success_words = {"success", "successfully", "completed", "clean", "placed"}
+    success_words = {"success", "successfully", "completed", "clean", "placed", "resting", "inside"}
     failure_words = {"fail", "failed", "wrong", "incomplete", "mistake", "incorrect", "drop"}
-    says_success = any(word in lower for word in success_words)
-    says_failure = any(word in lower for word in failure_words)
+    says_success = _has_unnegated_word(lower, success_words)
+    says_failure = _has_unnegated_word(lower, failure_words)
     if quality <= 2 and says_success and not says_failure:
         issues.append(GateIssue(episode_id, "score_reason_consistency", "low quality paired with success reason"))
     if quality >= 4 and says_failure and not says_success:
@@ -149,24 +150,43 @@ def _check_metadata(episode_id: str, metadata: dict[str, Any]) -> list[GateIssue
 
 def _object_like_tokens(text: str) -> list[str]:
     stop = {
+        "after",
         "approach",
+        "before",
         "carry",
         "destination",
+        "edge",
         "from",
         "grasp",
+        "leave",
         "lift",
         "move",
         "object",
         "place",
+        "pickup",
         "release",
         "sink",
         "task",
         "that",
         "toward",
+        "withdraw",
         "with",
     }
     tokens = [token.strip(".,:;()[]{}").lower() for token in text.split()]
     return [token for token in tokens if len(token) >= 4 and token not in stop]
+
+
+def _has_unnegated_word(text: str, target_words: set[str]) -> bool:
+    tokens = re.findall(r"[a-z0-9_]+", text.lower())
+    negators = {"no", "not", "without", "none", "never"}
+    for idx, token in enumerate(tokens):
+        if token not in target_words:
+            continue
+        window = tokens[max(0, idx - 10) : idx]
+        if any(word in negators for word in window):
+            continue
+        return True
+    return False
 
 
 def _read_payload(path_value: Any) -> dict[str, Any]:

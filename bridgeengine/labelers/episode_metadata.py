@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 
@@ -243,10 +244,10 @@ def _metadata_quality_issues(quality: int, mistake: bool, reason: str) -> list[s
     lower = reason.lower()
     if not reason or lower in {"one short sentence", "specific evidence consistent with the numeric score"}:
         issues.append("placeholder metadata reason")
-    success_words = {"success", "successfully", "completed", "clean", "placed"}
+    success_words = {"success", "successfully", "completed", "clean", "placed", "resting", "inside"}
     failure_words = {"fail", "failed", "wrong", "incomplete", "mistake", "incorrect", "drop"}
-    says_success = any(word in lower for word in success_words)
-    says_failure = any(word in lower for word in failure_words)
+    says_success = _has_unnegated_word(lower, success_words)
+    says_failure = _has_unnegated_word(lower, failure_words)
     if quality <= 2 and says_success and not says_failure:
         issues.append("quality score contradicts success reason")
     if quality >= 4 and says_failure and not says_success:
@@ -254,6 +255,19 @@ def _metadata_quality_issues(quality: int, mistake: bool, reason: str) -> list[s
     if mistake and quality >= 5:
         issues.append("mistake true with perfect quality")
     return issues
+
+
+def _has_unnegated_word(text: str, target_words: set[str]) -> bool:
+    tokens = re.findall(r"[a-z0-9_]+", text.lower())
+    negators = {"no", "not", "without", "none", "never"}
+    for idx, token in enumerate(tokens):
+        if token not in target_words:
+            continue
+        window = tokens[max(0, idx - 10) : idx]
+        if any(word in negators for word in window):
+            continue
+        return True
+    return False
 
 
 def _extract_json(text: str):

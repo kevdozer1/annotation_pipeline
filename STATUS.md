@@ -1,27 +1,36 @@
 # BridgeEngine Status
 
-Current snapshot visualized: `snap_2026_05_11_a8256b172c`
+Current OpenAI-backed snapshot visualized: `snap_2026_05_11_68c8cb784d`
+
+Comparison snapshot: `snap_2026_05_11_a8256b172c`
 
 ## What Is Built
 
 - Deterministic BridgeData V2 ingest into Parquet snapshots.
 - Two-stage semantic labelers with swappable VLM backends (`openai`, `moondream`, `mock`).
 - pi0.7-shaped labels: subtask segments, episode metadata, and end-of-segment subgoal images.
-- Full label provenance, including raw VLM output paths.
+- Full label provenance, including raw VLM output paths stored outside git.
 - DuckDB query layer and deterministic training-cut export.
 - Streamlit viewer with episode frames, labels, provenance, query outputs, and generated status figures.
 - Quality-gated benchmark scaffold that refuses bad labels.
 - Gold-set scaffold and reliability report command.
 
-## What Is Blocked
-
-- Stronger OpenAI-backend relabeling is blocked until `OPENAI_API_KEY` is available in the process or `.secrets/openai_api_key.txt`.
-- The current Moondream-era labels still fail the quality gate.
-- The real LEWM benchmark loop has not started.
-
 ## Current Quality State
 
-The current labeled snapshot fails quality gates for repeated subtask text, placeholder metadata reasons, object-grounding gaps, and quality-score collapse.
+The OpenAI-backed relabel passes the quality gate on all 13 episodes.
+
+```text
+Quality gate: PASS
+Episode pass rate: 1.000
+Quality counts: {1: 1, 3: 3, 4: 3, 5: 6}
+```
+
+The previous failure modes were:
+
+- Repeated templated subtask text: resolved by using live OpenAI two-stage observe-then-label output instead of deterministic fallback labels.
+- Metadata score/reason contradictions: resolved in the labels and by making the gate distinguish negated phrases such as "no wrong destination" from real failure claims.
+- Object-grounding gaps: resolved in the label set; the gate now ignores action/time words such as `pickup`, `before`, and `withdraw` as non-object tokens.
+- Quality-score collapse: resolved. The current distribution spans 1, 3, 4, and 5.
 
 ![Quality Summary](figures/quality_summary.png)
 
@@ -31,22 +40,32 @@ The current labeled snapshot fails quality gates for repeated subtask text, plac
 
 ## Benchmark State
 
-The benchmark chart is intentionally a placeholder until labels pass the gate.
+The benchmark chart is intentionally a placeholder until Kevin inspects label quality and approves starting the real LEWM grid.
 
 ![Benchmark Placeholder](figures/benchmark_placeholder.png)
 
-## Next Step
+## Human Inspection
 
-Set the OpenAI key without committing it:
+Three full example payloads are committed at:
 
-```powershell
-.\scripts\set_openai_key.ps1
+```text
+examples/openai_label_samples_snap_2026_05_11_68c8cb784d.json
 ```
 
-Then rerun:
+The real subgoal frames and raw VLM outputs remain local-only and ignored by git.
+
+## Validation Run
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot snap_2026_05_11_68c8cb784d --vlm-backend openai --vlm-model gpt-5.5
 .\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_68c8cb784d
 .\.venv\Scripts\python.exe -m bridgeengine.figures --snapshot snap_2026_05_11_68c8cb784d --compare-snapshot snap_2026_05_11_a8256b172c
+.\.venv\Scripts\python.exe -m pytest
 ```
+
+Latest local result: `11 passed`.
+
+## What Is Still Blocked
+
+- Human review of label quality is still the stop point before running the real LEWM benchmark.
+- The reliability report is wired, but Kevin still needs to fill the gold labels; the example file is intentionally not a real gold set.
+- No benchmark claim should be made yet. The current result is that the labeling pipeline is benchmark-ready, not that a model result exists.

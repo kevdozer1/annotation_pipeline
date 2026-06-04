@@ -1,0 +1,177 @@
+{
+  "snapshot_id": "snap_2026_05_11_68c8cb784d",
+  "quality_report": {
+    "passed": true,
+    "quality_counts": {
+      "1": 1,
+      "3": 3,
+      "4": 3,
+      "5": 6
+    },
+    "episode_pass_rate": 1.0
+  },
+  "examples": [
+    {
+      "episode_id": "episode_003087",
+      "snapshot_id": "snap_2026_05_11_68c8cb784d",
+      "subtask_segments": [
+        {
+          "end_step": 14,
+          "segment_idx": 0,
+          "start_step": 0,
+          "subtask_text": "move to the orange can and grasp it from the counter"
+        },
+        {
+          "end_step": 23,
+          "segment_idx": 1,
+          "start_step": 15,
+          "subtask_text": "carry the orange can over the metal pot"
+        },
+        {
+          "end_step": 27,
+          "segment_idx": 2,
+          "start_step": 24,
+          "subtask_text": "lower and release the orange can into the metal pot"
+        }
+      ],
+      "metadata": {
+        "control_mode": "end_effector",
+        "mistake": false,
+        "quality": 5,
+        "reason": "The robot grasps the can, moves it over the metal pot, and releases it so the can is clearly inside the pot in the final frame, with no visible wrong object, wrong destination, or failed placement.",
+        "speed": 28
+      },
+      "subgoals": [
+        {
+          "segment_idx": 0,
+          "frame_idx": 14,
+          "subtask_text": "move to the orange can and grasp it from the counter",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\00.jpg"
+        },
+        {
+          "segment_idx": 1,
+          "frame_idx": 23,
+          "subtask_text": "carry the orange can over the metal pot",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\01.jpg"
+        },
+        {
+          "segment_idx": 2,
+          "frame_idx": 27,
+          "subtask_text": "lower and release the orange can into the metal pot",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\02.jpg"
+        }
+      ],
+      "metadata_observation_summary": "The robot appears to complete the task by grasping the can, moving it over the pot, and releasing it into the pot.",
+      "task": "put can in pot",
+      "stage_one_summary": "the robot grasps an orange can from the counter area, carries it to the metal pot, lowers it into the pot, and releases it there"
+    },
+    {
+      "episode_id": "episode_035339",
+      "snapshot_id": "snap_2026_05_11_68c8cb784d",
+      "subtask_segments": [
+        {
+          "end_step": 6,
+          "segment_idx": 0,
+          "start_step": 0,
+          "subtask_text": "move gripper to the white basket with blue cloth near the stovetop"
+        },
+        {
+          "end_step": 26,
+          "segment_idx": 1,
+          "start_step": 7,
+          "subtask_text": "grasp and carry the white basket with blue cloth toward the right burner area"
+        },
+        {
+          "end_step": 38,
+          "segment_idx": 2,
+          "start_step": 27,
+          "subtask_text": "place and release the white basket with blue cloth beside the green cloth near the burners"
+        }
+      ],
+      "metadata": {
+        "control_mode": "end_effector",
+        "mistake": true,
+        "quality": 1,
+        "reason": "The eggplant is not visibly placed between the two right burners. The robot instead appears to manipulate a white slotted tray and blue cloth, and the final frame shows no clear eggplant at the intended burner location, indicating a failed/unfinished task.",
+        "speed": 39
+      },
+      "subgoals": [
+        {
+          "segment_idx": 0,
+          "frame_idx": 6,
+          "subtask_text": "move gripper to the white basket with blue cloth near the stovetop",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\00.jpg"
+        },
+        {
+          "segment_idx": 1,
+          "frame_idx": 26,
+          "subtask_text": "grasp and carry the white basket with blue cloth toward the right burner area",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\01.jpg"
+        },
+        {
+          "segment_idx": 2,
+          "frame_idx": 38,
+          "subtask_text": "place and release the white basket with blue cloth beside the green cloth near the burners",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\02.jpg"
+        }
+      ],
+      "metadata_observation_summary": "The task does not appear completed: the eggplant is not visibly placed between the two right burners, and the robot appears to interact with the tray/cloth instead.",
+      "task": "take the eggplant and put it between the two right burners",
+      "stage_one_summary": "A black robot gripper approaches a white plastic basket/tray with a blue cloth, grasps or contacts it, lifts and moves it across the wooden counter near a gray stovetop/burner surface, lowers it beside a green cloth, then releases or stops holding it while the placed basket/tray remains stationary. No distinct eggplant is visibly identifiable in the frames."
+    },
+    {
+      "episode_id": "episode_052920",
+      "snapshot_id": "snap_2026_05_11_68c8cb784d",
+      "subtask_segments": [
+        {
+          "end_step": 7,
+          "segment_idx": 0,
+          "start_step": 0,
+          "subtask_text": "move toward the teal cup at the rear sink edge"
+        },
+        {
+          "end_step": 12,
+          "segment_idx": 1,
+          "start_step": 8,
+          "subtask_text": "grasp the teal cup at the rear sink edge"
+        },
+        {
+          "end_step": 15,
+          "segment_idx": 2,
+          "start_step": 13,
+          "subtask_text": "carry and release the teal cup into the sink basin"
+        }
+      ],
+      "metadata": {
+        "control_mode": "end_effector",
+        "mistake": false,
+        "quality": 5,
+        "reason": "The turquoise cup starts on the back counter/drying area and is visible in the sink basin by the final frame, with no clear disturbance of other objects or wrong destination.",
+        "speed": 16
+      },
+      "subgoals": [
+        {
+          "segment_idx": 0,
+          "frame_idx": 7,
+          "subtask_text": "move toward the teal cup at the rear sink edge",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\00.jpg"
+        },
+        {
+          "segment_idx": 1,
+          "frame_idx": 12,
+          "subtask_text": "grasp the teal cup at the rear sink edge",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\01.jpg"
+        },
+        {
+          "segment_idx": 2,
+          "frame_idx": 15,
+          "subtask_text": "carry and release the teal cup into the sink basin",
+          "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\02.jpg"
+        }
+      ],
+      "metadata_observation_summary": "The robot appears to complete the task by moving the cup from the counter/drying area into the sink.",
+      "task": "put cup from counter or drying rack into sink",
+      "stage_one_summary": "A teal cup starts upright near the rear sink/drying area, the gripper approaches and contacts it, then carries it over the basin and releases it into the sink."
+    }
+  ]
+}
