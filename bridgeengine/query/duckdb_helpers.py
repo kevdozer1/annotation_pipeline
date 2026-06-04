@@ -14,6 +14,16 @@ def connect_snapshot(snapshot_id: str, data_root: str | Path | None = None) -> d
     snapshot_path = root / "snapshots" / snapshot_id
     if not snapshot_path.exists():
         raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
+    labels_path = snapshot_path / "labels.parquet"
+    label_columns = set(pd.read_parquet(labels_path).columns)
+    compat_columns = []
+    if "segment_idx" not in label_columns:
+        compat_columns.append("CAST(NULL AS INTEGER) AS segment_idx")
+    if "metadata_payload_json" not in label_columns:
+        compat_columns.append("CAST(NULL AS VARCHAR) AS metadata_payload_json")
+    if "subgoal_image_path" not in label_columns:
+        compat_columns.append("CAST(NULL AS VARCHAR) AS subgoal_image_path")
+    compat_sql = ",\n          " + ",\n          ".join(compat_columns) if compat_columns else ""
     con = duckdb.connect(database=":memory:")
     for table in ("episodes", "steps", "sensors"):
         con.execute(f"CREATE VIEW {table} AS SELECT * FROM read_parquet({_sql_string(snapshot_path / f'{table}.parquet')})")
@@ -21,9 +31,9 @@ def connect_snapshot(snapshot_id: str, data_root: str | Path | None = None) -> d
         f"""
         CREATE VIEW labels AS
         SELECT
-          *,
+          *{compat_sql},
           provenance_json AS provenance
-        FROM read_parquet({_sql_string(snapshot_path / 'labels.parquet')})
+        FROM read_parquet({_sql_string(labels_path)})
         """
     )
     return con

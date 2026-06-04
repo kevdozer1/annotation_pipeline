@@ -89,12 +89,12 @@ def _render_overview(manifest: dict[str, Any], episodes: pd.DataFrame, labels: p
         .agg(rows=("episode_id", "count"), avg_confidence=("confidence", "mean"))
         .sort_values("labeler_name")
     )
-    st.dataframe(coverage, use_container_width=True, hide_index=True)
+    st.dataframe(coverage, width="stretch", hide_index=True)
 
     st.subheader("Episodes")
     st.dataframe(
         episodes[["episode_id", "num_steps", "language_instruction", "source_path_video"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -112,7 +112,7 @@ def _render_overview(manifest: dict[str, Any], episodes: pd.DataFrame, labels: p
         cols = st.columns(min(3, len(existing)))
         for idx, path in enumerate(existing):
             with cols[idx % len(cols)]:
-                st.image(str(path), caption=path.name, use_container_width=True)
+                st.image(str(path), caption=path.name, width="stretch")
     else:
         st.info("No figures found. Run `python -m bridgeengine.figures --snapshot <snapshot>`.")
 
@@ -126,7 +126,7 @@ def _render_episode(episode: dict[str, Any], frames: np.ndarray | None, label_ma
             st.warning("No frames.npy available for this episode.")
         else:
             idx = st.slider("Frame", 0, int(frames.shape[0] - 1), int(frames.shape[0] // 2))
-            st.image(frames[idx], caption=f"Frame {idx}", use_container_width=True)
+            st.image(frames[idx], caption=f"Frame {idx}", width="stretch")
     with cols[1]:
         st.metric("Steps", int(episode["num_steps"]))
         st.metric("Labels", len(label_map))
@@ -154,7 +154,7 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
         st.markdown("**Subtask Segments**")
         segments = _load_segments(label_map.get("subtask_segmenter"))
         if segments:
-            st.dataframe(pd.DataFrame(segments), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(segments), width="stretch", hide_index=True)
         else:
             st.info("No subtask segment payload available.")
     with rich_cols[1]:
@@ -173,7 +173,7 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
             with cols[i % len(cols)]:
                 path = Path(row["subgoal_image_path"])
                 if path.exists():
-                    st.image(str(path), caption=f"segment {row['segment_idx']}", use_container_width=True)
+                    st.image(str(path), caption=f"segment {row['segment_idx']}", width="stretch")
     else:
         st.info("No subgoal image payloads available.")
 
@@ -183,21 +183,21 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
             st.markdown("**Mask overlay**")
             image = _mask_overlay(frames, label_map.get("perceptive_masks") or label_map.get("masks"), frame_idx)
             if image is not None:
-                st.image(image, use_container_width=True)
+                st.image(image, width="stretch")
             else:
                 st.info("No mask payload available.")
         with cols[1]:
             st.markdown("**Depth**")
             image = _depth_image(label_map.get("perceptive_depth") or label_map.get("depth"), frame_idx)
             if image is not None:
-                st.image(image, use_container_width=True)
+                st.image(image, width="stretch")
             else:
                 st.info("No depth payload available.")
         with cols[2]:
             st.markdown("**Tracks**")
             fig = _track_figure(frames, label_map.get("perceptive_tracks") or label_map.get("tracks"), frame_idx)
             if fig is not None:
-                st.pyplot(fig, use_container_width=True)
+                st.pyplot(fig, width="stretch")
                 plt.close(fig)
             else:
                 st.info("No track payload available.")
@@ -219,7 +219,7 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
                     "version": row["labeler_version"],
                 }
             )
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     with st.expander("Provenance JSON"):
         for name, row_or_rows in sorted(label_map.items()):
@@ -238,7 +238,7 @@ def _render_queries(snapshot_id: str, root: Path) -> None:
         with st.expander(name, expanded=name == "mask_coverage"):
             st.code(sql, language="sql")
             result = run_query(snapshot_id, sql, data_root=root)
-            st.dataframe(result, use_container_width=True, hide_index=True)
+            st.dataframe(result, width="stretch", hide_index=True)
 
 
 def _render_benchmark() -> None:
@@ -252,10 +252,10 @@ def _render_benchmark() -> None:
     results = pd.read_csv(csv_path)
     cols = st.columns([1, 1])
     with cols[0]:
-        st.dataframe(results, use_container_width=True, hide_index=True)
+        st.dataframe(results, width="stretch", hide_index=True)
     with cols[1]:
         if png_path.exists():
-            st.image(str(png_path), use_container_width=True)
+            st.image(str(png_path), width="stretch")
     if summary_path.exists():
         st.markdown(summary_path.read_text(encoding="utf-8"))
 
@@ -265,7 +265,7 @@ def _render_system(bridge_root: Path) -> None:
 
     st.subheader("System Readiness")
     status = collect_status(bridge_root=bridge_root)
-    st.dataframe(pd.DataFrame(status), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(status), width="stretch", hide_index=True)
     st.caption("This is a local readiness check. It does not import heavy model packages unless they are already installed.")
 
 
