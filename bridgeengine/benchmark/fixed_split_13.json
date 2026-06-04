@@ -1,0 +1,22 @@
+{
+  "split_id": "bridgedata13_fixed_v1",
+  "snapshot_reference": "snap_2026_05_11_68c8cb784d",
+  "note": "Fixed smoke-scale split shared by all annotation families and seeds. Held-out episodes cover a simple placement, the longest multi-step episode, and a short sink-placement episode.",
+  "train_episode_ids": [
+    "episode_003087",
+    "episode_004196",
+    "episode_014392",
+    "episode_017546",
+    "episode_024504",
+    "episode_024911",
+    "episode_032806",
+    "episode_034676",
+    "episode_036031",
+    "episode_044796"
+  ],
+  "heldout_episode_ids": [
+    "episode_023723",
+    "episode_035339",
+    "episode_052920"
+  ]
+}

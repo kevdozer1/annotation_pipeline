@@ -4,7 +4,7 @@ Prototype implementation of pi0.7 annotation pipeline on BridgeDataV2
 
 BridgeEngine is a Mode A proof-of-concept data engine for pi0.7-style robot annotation on BridgeData V2. It builds local Parquet snapshots, runs rich-prompt labelers, exposes DuckDB queries and a Streamlit viewer, exports deterministic training cuts, and keeps a 4-family label-value benchmark scaffold.
 
-The current pivot tests whether VLM-derived subtask segmentation is good enough to produce the pi0.7-style effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not part of the main benchmark.
+The current pivot tests whether VLM-derived subtask segmentation is good enough to produce the pi0.7-style effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not part of the main benchmark. The current 13-episode real LeWM smoke ablation does **not** show a positive metadata effect: baseline is the best mean, and rich-text + metadata is within seed noise.
 
 ## Quickstart
 
@@ -43,6 +43,17 @@ Backend selection:
 .\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend mock
 ```
 
+Real benchmark dependencies on Kevin's workstation:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu128
+.\.venv\Scripts\python.exe -m pip install --no-cache-dir -e "C:\Users\Kevin\projects\upstream\stable-worldmodel[train]"
+.\.venv\Scripts\python.exe -m pip install --no-cache-dir "transformers==5.4.0" "huggingface-hub==1.8.0" "stable-pretraining==0.1.6"
+$env:LEWM_PRETRAINED_PATH = "D:\hf_cache\models--quentinll--lewm-cube\snapshots\7d05e023b3c1114cc8e803ec23fb0177d688598b\weights.pt"
+```
+
+The checkpoint expects the `transformers==5.4.0` ViT key layout. Newer `transformers` builds changed module names and fail to load this checkpoint.
+
 ## After Label Inspection
 
 Once the segment boundaries, subtask text, metadata distribution, and subgoal paths look reasonable:
@@ -65,6 +76,8 @@ Expected artifacts:
 - `bench_results/bench_results.csv`
 - `bench_results/bench_bar.png`
 - `bench_results/bench_summary.md`
+
+Benchmark note: this is a smoke-scale real LeWM frozen-adapter ablation using a checked-in 10 train / 3 held-out episode split. It is useful for seeing whether the pipeline can produce learned held-out latent-MSE numbers, but it is not a robust 13-episode scientific conclusion.
 
 ## Architecture
 
@@ -90,6 +103,19 @@ BridgeData V2
 5. Label-Value Benchmark
    baseline, rich_text, rich_text_metadata, rich_text_metadata_subgoal
 ```
+
+## Current Benchmark Finding
+
+Latest real grid on `snap_2026_05_11_68c8cb784d`:
+
+| Family | Mean latent MSE | Seed std | Delta vs baseline |
+|---|---:|---:|---:|
+| baseline | 0.039541 | 0.004444 | 0.0% |
+| rich_text | 0.042126 | 0.004554 | +6.5% |
+| rich_text_metadata | 0.040083 | 0.003849 | +1.4% |
+| rich_text_metadata_subgoal | 0.039926 | 0.004309 | +1.0% |
+
+Read this as: the real benchmark path now works, but the current smoke result is inconclusive-to-negative for the pi0.7-style metadata claim. The richer families are fed into the model through a learned conditioning adapter, with dropout-aware handling for subtask/metadata fields and the subgoal image encoded by frozen LeWM. At this scale, baseline has the best mean and metadata does not beat baseline beyond seed noise.
 
 ## Annotation Families
 
@@ -136,4 +162,8 @@ This repository intentionally does not include Iceberg, Delta, lakeFS, Qdrant, F
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot $SnapshotId
 .\.venv\Scripts\python.exe -m bridgeengine.system_check
+.\.venv\Scripts\python.exe -m bridgeengine.goldset init --snapshot $SnapshotId --output gold_sets\$SnapshotId.json
+# After filling gold_sets\$SnapshotId.json:
+.\.venv\Scripts\python.exe -m bridgeengine.goldset report --snapshot $SnapshotId --gold-file gold_sets\$SnapshotId.json
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.run_grid --snapshot $SnapshotId --output-dir bench_results --gold-file gold_sets\$SnapshotId.json
 ```

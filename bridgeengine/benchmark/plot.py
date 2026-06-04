@@ -32,9 +32,23 @@ def write_bar_chart(results_csv: Path, output_path: Path) -> Path:
     )
     ax.set_ylabel("Latent prediction MSE")
     ax.set_xlabel("Annotation family")
-    ax.set_title("BridgeEngine Rich-Prompt Benchmark, 13 episodes")
+    backend = results.get("benchmark_backend", pd.Series(["unknown"])).iloc[0]
+    if backend == "contract_smoke_no_science":
+        title = "BridgeEngine Benchmark Contract Smoke, Not A Scientific Result"
+    else:
+        title = "BridgeEngine Real LeWM Smoke Ablation, 13 episodes"
+    ax.set_title(title)
     ax.grid(axis="y", alpha=0.25)
-    fig.tight_layout()
+    ax.text(
+        0.0,
+        -0.32,
+        "Caption: fixed 10/3 episode split; bars are seed mean +/- std. "
+        "Smoke-scale only.",
+        transform=ax.transAxes,
+        fontsize=8,
+        va="top",
+    )
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=160)
     plt.close(fig)

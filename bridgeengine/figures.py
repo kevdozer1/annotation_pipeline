@@ -130,11 +130,31 @@ def _benchmark_placeholder(output_path: Path) -> None:
     fig, ax = plt.subplots(figsize=(8, 4.2))
     if csv_path.exists():
         rows = pd.read_csv(csv_path)
-        grouped = rows.groupby("family")["latent_mse"].mean().sort_values()
-        ax.bar(grouped.index.tolist(), grouped.values.tolist(), color="#247BA0")
+        grouped = (
+            rows.groupby("family", as_index=False)
+            .agg(latent_mse_mean=("latent_mse", "mean"), latent_mse_std=("latent_mse", "std"))
+            .sort_values("latent_mse_mean")
+        )
+        backend = str(rows.get("benchmark_backend", pd.Series(["unknown"])).iloc[0])
+        ax.bar(
+            grouped["family"].tolist(),
+            grouped["latent_mse_mean"].tolist(),
+            yerr=grouped["latent_mse_std"].fillna(0.0).tolist(),
+            color="#247BA0",
+            capsize=4,
+        )
         ax.set_ylabel("latent MSE")
-        ax.set_title("Benchmark Results")
+        title = "Real LeWM Smoke Ablation" if backend != "contract_smoke_no_science" else "Benchmark Contract Smoke"
+        ax.set_title(title)
         ax.tick_params(axis="x", rotation=20)
+        ax.text(
+            0.0,
+            -0.32,
+            "Fixed 10/3 episode split; bars are seed mean +/- std. Smoke-scale only.",
+            transform=ax.transAxes,
+            fontsize=8,
+            va="top",
+        )
     else:
         families = ["baseline", "rich_text", "rich_text_metadata", "rich_text_metadata_subgoal"]
         ax.bar(families, [0, 0, 0, 0], color="#D0D0D0")
@@ -151,7 +171,7 @@ def _benchmark_placeholder(output_path: Path) -> None:
         ax.set_ylabel("latent MSE")
         ax.set_title("Benchmark Placeholder")
         ax.tick_params(axis="x", rotation=20)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
 
