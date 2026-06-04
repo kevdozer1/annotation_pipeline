@@ -73,6 +73,7 @@ def run_family_seed(
     scale: int = 13,
     *,
     contract_smoke: bool = False,
+    split_file: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run one BridgeEngine family/seed benchmark cell.
 
@@ -89,15 +90,15 @@ def run_family_seed(
     cut_path = Path(cut_path)
     if contract_smoke:
         return _run_contract_smoke(cut_path, family, seed, scale)
-    return _run_real_lewm(cut_path, family, seed)
+    return _run_real_lewm(cut_path, family, seed, split_file=Path(split_file) if split_file else None)
 
 
-def _run_real_lewm(cut_path: Path, family: str, seed: int) -> dict[str, Any]:
+def _run_real_lewm(cut_path: Path, family: str, seed: int, split_file: Path | None = None) -> dict[str, Any]:
     start = time.perf_counter()
     torch = _import_torch()
     _seed_everything(torch, seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_ids, heldout_ids, split_id = _load_split(cut_path)
+    train_ids, heldout_ids, split_id = _load_split(cut_path, split_file=split_file)
     train_set = BridgeWindowDataset(cut_path, train_ids)
     heldout_set = BridgeWindowDataset(cut_path, heldout_ids)
     if not train_set.records:
@@ -464,23 +465,25 @@ def _seed_everything(torch, seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _load_split(cut_path: Path) -> tuple[list[str], list[str], str]:
+def _load_split(cut_path: Path, split_file: Path | None = None) -> tuple[list[str], list[str], str]:
     cut_episode_ids = [
         line.strip()
         for line in (cut_path / "episode_list.txt").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    if not SPLIT_FILE.exists():
-        raise LeWMBenchmarkError(f"Missing checked-in fixed split: {SPLIT_FILE}")
-    split = _read_json(SPLIT_FILE)
+    path = Path(split_file) if split_file else SPLIT_FILE
+    if not path.exists():
+        raise LeWMBenchmarkError(f"Missing benchmark split file: {path}")
+    split = _read_json(path)
     train_ids = list(split["train_episode_ids"])
     heldout_ids = list(split["heldout_episode_ids"])
     missing = sorted((set(train_ids) | set(heldout_ids)) - set(cut_episode_ids))
     extras = sorted(set(cut_episode_ids) - (set(train_ids) | set(heldout_ids)))
     if missing or extras:
         raise LeWMBenchmarkError(
-            "The real benchmark expects the checked-in 13-episode split. "
-            f"Missing={missing}; extras={extras}. Use --allow-scaffolding-labels only for plumbing tests."
+            "The real benchmark cut must exactly match its split file. "
+            f"Split={path}; missing={missing}; extras={extras}. "
+            "Use --allow-scaffolding-labels only for plumbing tests."
         )
     return train_ids, heldout_ids, str(split.get("split_id", "fixed_13_v1"))
 

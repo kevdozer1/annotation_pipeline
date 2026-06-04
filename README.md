@@ -132,6 +132,33 @@ The value interface has two methods:
 
 The report prints the value-score distribution, top outliers, and a tiered Parquet compression comparison. On the current 13-episode snapshot, prediction-error scoring ranks `episode_024911` highest. Tiered compression is larger than uniform zstd at this toy scale because split-file overhead dominates; this is expected to be meaningful only on larger snapshots.
 
+## Cost-Gated Scaling
+
+Ingest accepts arbitrary episode counts from the mounted source:
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.ingest --source D:\bridgedata_v2_subset --episodes 50 --episode-offset 0
+.\.venv\Scripts\python.exe -m bridgeengine.ingest --source D:\bridgedata_v2_subset --episodes all
+```
+
+The current workstation mount exposes 100 local episodes under `D:\bridgedata_v2_subset`; the full approximately 60k BridgeData V2 corpus is not mounted here.
+
+Before any larger hosted-VLM run, use the cost probe:
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.cost_probe --snapshot $SnapshotId --projection 200 --projection 1000 --projection 60000
+```
+
+The 50-episode `gpt-5.5` probe is documented in `COST_PROBE_50.md`. It measured about `$0.063316` per episode and 39.4 seconds per episode serially, with projected 60k labeling cost around `$3,798.94` and 656.81 serial hours. The 50-slice quality gate currently fails at 46/50 passing episodes due object-grounding heuristic issues, so it should not be used for scale-curve training without inspection or a gate/prompt fix.
+
+Scale-curve ablations are planned separately from labeling:
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot $SnapshotId --sizes 50 200 800 --heldout-count 10 --quality-stratified --output-dir scale_results\plan
+```
+
+This writes deterministic split files and a plan. It does not launch LeWM training unless `--run` is passed. Do not pass `--run` until Kevin has approved the target N and the labels pass the quality gate.
+
 ## Annotation Families
 
 - `baseline`: BridgeData task instruction only.

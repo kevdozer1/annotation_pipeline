@@ -18,15 +18,17 @@ def run_grid(
     snapshot_id: str,
     data_root: str | Path | None = None,
     cut_name: str = "cut_mode_a_all_labels",
+    filter_sql: str = "TRUE",
     output_dir: str | Path = "bench_results",
     seeds: tuple[int, ...] = (0, 1, 2),
     allow_scaffolding_labels: bool = False,
     gold_file: str | Path | None = None,
+    split_file: str | Path | None = None,
 ) -> pd.DataFrame:
     root = resolve_data_root(data_root)
     _assert_benchmarkable_labels(root / "snapshots" / snapshot_id, allow_scaffolding_labels)
     cut_root = root / "training_cuts"
-    cut_manifest = export_cut(snapshot_id, "TRUE", cut_root, cut_name, data_root=root)
+    cut_manifest = export_cut(snapshot_id, filter_sql, cut_root, cut_name, data_root=root)
     cut_path = cut_root / cut_name
     scale = int(cut_manifest["episode_count"])
     rows = []
@@ -39,6 +41,7 @@ def run_grid(
                     seed=seed,
                     scale=scale,
                     contract_smoke=allow_scaffolding_labels,
+                    split_file=Path(split_file) if split_file else None,
                 )
             )
     results = pd.DataFrame(rows)
@@ -125,6 +128,8 @@ def main() -> None:
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--data-root", default=None)
     parser.add_argument("--output-dir", default="bench_results")
+    parser.add_argument("--filter-sql", default="TRUE")
+    parser.add_argument("--split-file", default=None)
     parser.add_argument(
         "--gold-file",
         default=None,
@@ -140,8 +145,10 @@ def main() -> None:
         snapshot_id=args.snapshot,
         data_root=Path(args.data_root) if args.data_root else None,
         output_dir=args.output_dir,
+        filter_sql=args.filter_sql,
         allow_scaffolding_labels=args.allow_scaffolding_labels,
         gold_file=Path(args.gold_file) if args.gold_file else None,
+        split_file=Path(args.split_file) if args.split_file else None,
     )
     print(results.to_string(index=False))
     if args.gold_file:

@@ -33,9 +33,10 @@ class EpisodeSource:
 
 def ingest_bridge_v2(
     source: str | Path = "bridge_v2",
-    episodes: int = 13,
+    episodes: int | None = 13,
     data_root: str | Path | None = None,
     copy_raw: bool = False,
+    episode_offset: int = 0,
 ) -> dict[str, Any]:
     """Ingest BridgeData V2-style episodes into a deterministic POC snapshot.
 
@@ -45,8 +46,9 @@ def ingest_bridge_v2(
     a clean clone.
     """
     root = resolve_data_root(data_root)
-    source_root = _resolve_source_root(source, root, episodes)
-    episode_sources = _select_episode_sources(source_root, episodes)
+    requested_episodes = episodes if episodes is not None else _available_episode_count(source, root)
+    source_root = _resolve_source_root(source, root, requested_episodes)
+    episode_sources = _select_episode_sources(source_root, episodes, episode_offset=episode_offset)
     if copy_raw:
         episode_sources = _copy_raw_episodes(episode_sources, root)
 
@@ -99,7 +101,7 @@ def _resolve_source_root(source: str | Path, root: Path, episodes: int) -> Path:
     return source_root
 
 
-def _select_episode_sources(source_root: Path, episodes: int) -> list[EpisodeSource]:
+def _select_episode_sources(source_root: Path, episodes: int | None, episode_offset: int = 0) -> list[EpisodeSource]:
     manifest_entries = _load_manifest_entries(source_root)
     by_id = {f"episode_{int(e['episode_index']):06d}": e for e in manifest_entries}
 
@@ -109,7 +111,7 @@ def _select_episode_sources(source_root: Path, episodes: int) -> list[EpisodeSou
         preferred_ids.extend(e["episode_id"] for e in pilot.get("core", []))
     preferred_ids.extend(by_id.keys())
 
-    selected: list[EpisodeSource] = []
+    ordered_ids: list[str] = []
     seen: set[str] = set()
     for episode_id in preferred_ids:
         if episode_id in seen:
@@ -117,28 +119,48 @@ def _select_episode_sources(source_root: Path, episodes: int) -> list[EpisodeSou
         ep_dir = source_root / "episodes" / episode_id
         if not ep_dir.exists():
             continue
+        ordered_ids.append(episode_id)
+        seen.add(episode_id)
+    if episode_offset < 0:
+        raise ValueError("episode_offset must be non-negative")
+    target_count = len(ordered_ids) if episodes is None else int(episodes)
+    selected_ids = ordered_ids[episode_offset : episode_offset + target_count]
+
+    selected: list[EpisodeSource] = []
+    for episode_id in selected_ids:
+        ep_dir = source_root / "episodes" / episode_id
         entry = by_id.get(episode_id, {})
         selected.append(_episode_from_dir(ep_dir, entry))
-        seen.add(episode_id)
-        if len(selected) >= episodes:
+        if episodes is not None and len(selected) >= episodes:
             break
 
-    if len(selected) < episodes:
+    if episodes is not None and len(selected) < episodes:
         raise ValueError(
-            f"Requested {episodes} episodes but found {len(selected)} under {source_root}"
+            f"Requested {episodes} episodes from offset {episode_offset} but found {len(selected)} under {source_root}"
         )
     return selected
 
 
+def _available_episode_count(source: str | Path, root: Path) -> int:
+    source_root = _resolve_source_root(source, root, 13)
+    return len(_load_manifest_entries(source_root))
+
+
 def _load_manifest_entries(source_root: Path) -> list[dict[str, Any]]:
     manifest_path = source_root / "manifest.json"
+    entries: list[dict[str, Any]] = []
+    seen_indices: set[int] = set()
     if manifest_path.exists():
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
         if isinstance(data, list):
-            return data
-    entries = []
+            for entry in data:
+                entries.append(entry)
+                if entry.get("episode_index") is not None:
+                    seen_indices.add(int(entry["episode_index"]))
     for ep_dir in sorted((source_root / "episodes").glob("episode_*")):
         idx = int(ep_dir.name.split("_")[1])
+        if idx in seen_indices:
+            continue
         meta = _read_episode_meta(ep_dir)
         frames = _load_optional_array(ep_dir / "frames.npy")
         actions = _load_optional_array(ep_dir / "actions.npy")
