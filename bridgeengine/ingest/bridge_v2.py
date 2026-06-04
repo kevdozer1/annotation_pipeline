@@ -201,6 +201,11 @@ def _build_tables(
                 "source_path_frames": str((ep.episode_path / "frames.npy").resolve()),
                 "num_steps": int(num_steps),
                 "language_instruction": ep.task,
+                "value_score": None,
+                "value_percentile": None,
+                "value_rank": None,
+                "value_method": None,
+                "value_score_version": None,
                 "snapshot_id": snapshot_id,
             }
         )
@@ -320,4 +325,3 @@ def _load_or_zeros(path: Path, shape: tuple[int, int]) -> np.ndarray:
     if path.exists():
         return np.asarray(np.load(path, allow_pickle=False))
     return np.zeros(shape, dtype=np.float32)
-

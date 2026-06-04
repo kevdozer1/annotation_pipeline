@@ -58,8 +58,8 @@ def main() -> None:
     episode_path = Path(episode["source_path_meta"]).parent
     frames = _load_frames(episode_path)
 
-    overview_tab, frame_tab, anno_tab, query_tab, bench_tab, system_tab = st.tabs(
-        ["Overview", "Episode", "Annotations", "Queries", "Benchmark", "System"]
+    overview_tab, frame_tab, anno_tab, value_tab, query_tab, bench_tab, system_tab = st.tabs(
+        ["Overview", "Episode", "Annotations", "Value", "Queries", "Benchmark", "System"]
     )
 
     with overview_tab:
@@ -68,6 +68,8 @@ def main() -> None:
         _render_episode(episode, frames, label_map)
     with anno_tab:
         _render_annotations(episode_id, frames, label_map)
+    with value_tab:
+        _render_value(snapshot_path, episodes)
     with query_tab:
         _render_queries(snapshot_id, root)
     with bench_tab:
@@ -228,6 +230,53 @@ def _render_annotations(episode_id: str, frames: np.ndarray | None, label_map: d
                 suffix = f" segment {row.get('segment_idx')}" if row.get("segment_idx") is not None else ""
                 st.markdown(f"**{name}{suffix}**")
                 st.json(json.loads(row["provenance_json"]))
+
+
+def _render_value(snapshot_path: Path, episodes: pd.DataFrame) -> None:
+    st.subheader("Value-Aware Curation")
+    if "value_score" not in episodes.columns or episodes["value_score"].isna().all():
+        st.info("No value scores yet. Run `python -m bridgeengine.value report --snapshot <snapshot>`.")
+        return
+    scored = episodes.dropna(subset=["value_score"]).copy()
+    scored["value_score"] = scored["value_score"].astype(float)
+    cols = st.columns(4)
+    cols[0].metric("Scored episodes", len(scored))
+    cols[1].metric("Mean score", f"{scored['value_score'].mean():.4f}")
+    cols[2].metric("Max score", f"{scored['value_score'].max():.4f}")
+    cols[3].metric("Method", str(scored["value_method"].dropna().iloc[0]) if scored["value_method"].notna().any() else "unknown")
+
+    st.markdown("**Top Outliers**")
+    display_cols = [
+        "value_rank",
+        "episode_id",
+        "value_score",
+        "value_percentile",
+        "num_steps",
+        "language_instruction",
+    ]
+    existing = [col for col in display_cols if col in scored.columns]
+    st.dataframe(
+        scored.sort_values("value_score", ascending=False)[existing].head(20),
+        width="stretch",
+        hide_index=True,
+    )
+
+    report_path = snapshot_path / "value_report.json"
+    if report_path.exists():
+        with st.expander("Value report JSON"):
+            st.json(_read_json(report_path))
+
+    compression_root = snapshot_path / "value_compression"
+    reports = sorted(compression_root.glob("*/report.json")) if compression_root.exists() else []
+    if reports:
+        latest = reports[-1]
+        compression = _read_json(latest)
+        st.markdown("**Tiered Compression**")
+        ccols = st.columns(4)
+        ccols[0].metric("Uniform zstd", compression.get("uniform_zstd_size_bytes", 0))
+        ccols[1].metric("Tiered", compression.get("tiered_size_bytes", 0))
+        ccols[2].metric("Savings vs uniform", f"{compression.get('tiered_vs_uniform_savings_pct', 0.0):.2f}%")
+        ccols[3].metric("High-value episodes", len(compression.get("high_value_episode_ids", [])))
 
 
 def _render_queries(snapshot_id: str, root: Path) -> None:

@@ -117,6 +117,21 @@ Latest real grid on `snap_2026_05_11_68c8cb784d`:
 
 Read this as: the real benchmark path now works, but the current smoke result is inconclusive-to-negative for the pi0.7-style metadata claim. The richer families are fed into the model through a learned conditioning adapter, with dropout-aware handling for subtask/metadata fields and the subgoal image encoded by frozen LeWM. At this scale, baseline has the best mean and metadata does not beat baseline beyond seed noise.
 
+## Value-Aware Curation
+
+BridgeEngine can score each episode by estimated curation value and write the score directly into `episodes.parquet`.
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.value report --snapshot $SnapshotId
+```
+
+The value interface has two methods:
+
+- `prediction-error`: trains a small LeWM frozen-adapter pass and scores episodes by per-episode latent prediction error. High error means anomalous/high-value.
+- `embedding-distance`: deterministic fallback using action/state/frame summary embeddings, centroid distance, and kNN sparsity.
+
+The report prints the value-score distribution, top outliers, and a tiered Parquet compression comparison. On the current 13-episode snapshot, prediction-error scoring ranks `episode_024911` highest. Tiered compression is larger than uniform zstd at this toy scale because split-file overhead dominates; this is expected to be meaningful only on larger snapshots.
+
 ## Annotation Families
 
 - `baseline`: BridgeData task instruction only.

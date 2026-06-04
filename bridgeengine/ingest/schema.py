@@ -10,6 +10,11 @@ EPISODE_COLUMNS = [
     "source_path_frames",
     "num_steps",
     "language_instruction",
+    "value_score",
+    "value_percentile",
+    "value_rank",
+    "value_method",
+    "value_score_version",
     "snapshot_id",
 ]
 
