@@ -1,36 +1,62 @@
 # BridgeEngine Status
 
-Current OpenAI-backed snapshot visualized: `snap_2026_05_11_68c8cb784d`
+Last updated: 2026-06-05
 
-Comparison snapshot: `snap_2026_05_11_a8256b172c`
+Current best snapshot:
+
+```text
+snap_2026_05_11_1dde3edf5d_human_calibrated
+```
+
+Source Gemini snapshot:
+
+```text
+snap_2026_05_11_1dde3edf5d
+```
 
 ## What Is Built
 
 - Deterministic BridgeData V2 ingest into Parquet snapshots.
-- Two-stage semantic labelers with swappable VLM backends (`openai`, `moondream`, `mock`).
+- Two-stage semantic labelers with swappable VLM backends (`openai`, `gemini`, `moondream`, `mock`).
 - pi0.7-shaped labels: subtask segments, episode metadata, and end-of-segment subgoal images.
 - Full label provenance, including raw VLM output paths stored outside git.
 - DuckDB query layer and deterministic training-cut export.
-- Streamlit viewer with episode frames, labels, provenance, query outputs, and generated status figures.
+- Streamlit viewer plus a dedicated review GUI for fast score calibration.
 - Quality-gated benchmark runner that refuses bad labels, then runs a real LeWM frozen-adapter smoke ablation.
 - Gold-set scaffold and reliability report command.
+- Value/anomaly scoring and tiered-compression probes.
+
+## Human Calibration State
+
+Kevin reviewed all 100 clips in the dedicated GUI and changed scores only:
+
+```text
+reviewed clips: 100 / 100
+score changes versus Gemini: 58 / 100
+review notes intentionally entered: 0
+calibration reasons intentionally entered: 0
+subtask-boundary toggles used: 0
+subgoal toggles used: 0
+```
+
+Score distribution before and after calibration:
+
+| Source | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|
+| Gemini auto curation | 0 | 5 | 0 | 9 | 86 |
+| Kevin score calibration | 0 | 6 | 15 | 30 | 49 |
+
+This is score calibration, not full gold annotation. Boundary IoU and subgoal-selection agreement are still unmeasured.
 
 ## Current Quality State
 
-The OpenAI-backed relabel passes the quality gate on all 13 episodes.
+The human-calibrated all-100 snapshot passes the quality gate:
 
 ```text
 Quality gate: PASS
 Episode pass rate: 1.000
-Quality counts: {1: 1, 3: 3, 4: 3, 5: 6}
+Quality counts: {2: 6, 3: 15, 4: 30, 5: 49}
 ```
-
-The previous failure modes were:
-
-- Repeated templated subtask text: resolved by using live OpenAI two-stage observe-then-label output instead of deterministic fallback labels.
-- Metadata score/reason contradictions: resolved in the labels and by making the gate distinguish negated phrases such as "no wrong destination" from real failure claims.
-- Object-grounding gaps: resolved in the label set; the gate now ignores action/time words such as `pickup`, `before`, and `withdraw` as non-object tokens.
-- Quality-score collapse: resolved. The current distribution spans 1, 3, 4, and 5.
 
 ![Quality Summary](figures/quality_summary.png)
 
@@ -40,44 +66,40 @@ The previous failure modes were:
 
 ## Benchmark State
 
-The fake CPU-proxy benchmark has been replaced. The current chart is a real LeWM frozen-adapter smoke ablation over 13 episodes, with a fixed 10 train / 3 held-out episode split and 3 seeds per family.
+The current chart is a real LeWM frozen-adapter scale curve over 100 local episodes, using a quality-stratified train split, a fixed mixed-quality 10-episode held-out split, and two seeds per family.
 
 Mean held-out latent MSE:
 
-| Family | Mean | Std | Delta vs baseline |
-|---|---:|---:|---:|
-| baseline | 0.039541 | 0.004444 | 0.0% |
-| rich_text | 0.042126 | 0.004554 | +6.5% |
-| rich_text_metadata | 0.040083 | 0.003849 | +1.4% |
-| rich_text_metadata_subgoal | 0.039926 | 0.004309 | +1.0% |
+| N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|---:|
+| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
+| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
+| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
 
-Interpretation: baseline is the best mean. The metadata family does not beat baseline beyond seed noise on this smoke split. This is evidence against making a positive conditioning claim at 13 episodes, not a final result about pi0.7-style annotation in general.
+Delta versus baseline, lower is better:
 
-![Benchmark Results](figures/benchmark_placeholder.png)
+| N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|
+| 25 | -2.38% | -5.70% | -9.64% |
+| 50 | -2.58% | -8.79% | -11.39% |
+| 100 | +2.67% | +1.37% | -7.61% |
 
-## Human Inspection
+Interpretation: after score calibration, the metadata+subgoal family beats baseline at all three tested sizes. Text-only and metadata-only help at N=25 and N=50 but regress slightly at N=100. This is a positive smoke-scale result, not a robust robotics conclusion.
 
-Three full example payloads are committed at:
-
-```text
-examples/openai_label_samples_snap_2026_05_11_68c8cb784d.json
-```
-
-The real subgoal frames and raw VLM outputs remain local-only and ignored by git.
+![Human-Calibrated Scale Curve](figures/scale_curve_human_calibrated_100.png)
 
 ## Validation Run
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_68c8cb784d
-.\.venv\Scripts\python.exe -m bridgeengine.figures --snapshot snap_2026_05_11_68c8cb784d --compare-snapshot snap_2026_05_11_a8256b172c
-.\.venv\Scripts\python.exe -m bridgeengine.benchmark.run_grid --snapshot snap_2026_05_11_68c8cb784d --output-dir bench_results
+.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated --sizes 25 50 100 --heldout-count 10 --quality-stratified --benchmark-seeds 0 1 --output-dir scale_results\human_calibrated_100 --run
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Latest local result: real grid completed on CUDA, then pytest passed locally.
-
 ## What Is Still Blocked
 
-- Human gold labels are still missing, so label reliability is heuristic-gated rather than measured against human review.
-- The reliability report is wired, but Kevin still needs to fill the gold labels; the example file is intentionally not a real gold set.
-- No strong scientific claim should be made from this grid. It is a smoke-scale ablation and the positive pi0.7-style metadata effect did not appear on this split.
+- Subtask boundary and subgoal labels are not human-gold validated.
+- The scale curve has only two seeds.
+- The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus.
+- Standard RLDS/LeRobot export is not implemented.
+- This should be framed as a calibrated smoke result, not a settled claim that pi0.7-style conditioning improves robot learning.

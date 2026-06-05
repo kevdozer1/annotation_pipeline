@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from bridgeengine.calibration import calibration_reliability, load_or_create_calibration_gold, review_summary, update_episode_review
+from bridgeengine.apply_gold import apply_gold_scores_to_snapshot
 from bridgeengine.ingest import ingest_bridge_v2
 from bridgeengine.orchestrate import run_labelers
 from bridgeengine.review_gui import ReviewDataset
@@ -66,3 +67,45 @@ def test_review_dataset_save_review_advances_to_next(tmp_path: Path) -> None:
     assert saved["saved"] is True
     assert saved["next_episode_id"] == dataset.episode_ids[1]
     assert saved["state"]["reviewed_count"] == 1
+
+
+def test_apply_gold_scores_to_calibrated_snapshot(tmp_path: Path) -> None:
+    result = ingest_bridge_v2(source="synthetic", episodes=2, data_root=tmp_path)
+    run_labelers(result["snapshot_id"], data_root=tmp_path, vlm_backend="mock")
+    gold_path = tmp_path / "calibration_gold.json"
+    payload = load_or_create_calibration_gold(result["snapshot_id"], gold_path, data_root=tmp_path)
+    episode_id = payload["episodes"][0]["episode_id"]
+
+    update_episode_review(
+        result["snapshot_id"],
+        episode_id,
+        curation_quality=2,
+        mistake=True,
+        reason="Downgraded by human review.",
+        review_notes="The video is not useful enough.",
+        gold_file=gold_path,
+        data_root=tmp_path,
+    )
+    target_snapshot = result["snapshot_id"] + "_human"
+    report = apply_gold_scores_to_snapshot(
+        result["snapshot_id"],
+        target_snapshot,
+        gold_file=gold_path,
+        data_root=tmp_path,
+    )
+
+    assert report["target_snapshot_id"] == target_snapshot
+    assert report["changed_score_count"] >= 1
+    target_labels = (tmp_path / "snapshots" / target_snapshot / "labels.parquet")
+    assert target_labels.exists()
+    import json
+    import pandas as pd
+
+    labels = pd.read_parquet(target_labels)
+    row = labels[(labels["episode_id"] == episode_id) & (labels["labeler_name"] == "episode_metadata")].iloc[0]
+    metadata = json.loads(row["metadata_payload_json"])
+    assert metadata["quality"] == 2
+    assert metadata["curation_quality"] == 2
+    assert metadata["curation_keep"] is False
+    assert metadata["human_calibrated"] is True
+    assert row["snapshot_id"] == target_snapshot

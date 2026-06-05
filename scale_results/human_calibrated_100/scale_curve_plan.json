@@ -1,0 +1,73 @@
+{
+  "available_episode_count": 100,
+  "available_sizes": [
+    {
+      "filter_sql": "e.episode_id IN ('episode_000352', 'episode_000392', 'episode_000425', 'episode_001146', 'episode_001860', 'episode_001972', 'episode_003087', 'episode_004196', 'episode_004417', 'episode_005164', 'episode_006115', 'episode_006686', 'episode_009999', 'episode_010365', 'episode_013031', 'episode_013182', 'episode_013972', 'episode_023403', 'episode_027072', 'episode_028645', 'episode_032021', 'episode_033512', 'episode_044074', 'episode_048598', 'episode_052491')",
+      "heldout_episode_count": 10,
+      "quality_distribution_heldout": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 7
+      },
+      "quality_distribution_train": {
+        "2": 4,
+        "3": 4,
+        "4": 4,
+        "5": 3
+      },
+      "size": 25,
+      "split_file": "scale_results\\human_calibrated_100\\splits\\scale_25_split.json",
+      "train_episode_count": 15
+    },
+    {
+      "filter_sql": "e.episode_id IN ('episode_000352', 'episode_000392', 'episode_000425', 'episode_001146', 'episode_001860', 'episode_001972', 'episode_003087', 'episode_004196', 'episode_004417', 'episode_004558', 'episode_004655', 'episode_004679', 'episode_005164', 'episode_005957', 'episode_006115', 'episode_006181', 'episode_006686', 'episode_007275', 'episode_007884', 'episode_009653', 'episode_009999', 'episode_010365', 'episode_010821', 'episode_013031', 'episode_013182', 'episode_013395', 'episode_013597', 'episode_013972', 'episode_014040', 'episode_015256', 'episode_016049', 'episode_017546', 'episode_018682', 'episode_018799', 'episode_023403', 'episode_023723', 'episode_023803', 'episode_024911', 'episode_025712', 'episode_027072', 'episode_028645', 'episode_032021', 'episode_033512', 'episode_036031', 'episode_042129', 'episode_042380', 'episode_043068', 'episode_044074', 'episode_048598', 'episode_052491')",
+      "heldout_episode_count": 10,
+      "quality_distribution_heldout": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 7
+      },
+      "quality_distribution_train": {
+        "2": 5,
+        "3": 12,
+        "4": 12,
+        "5": 11
+      },
+      "size": 50,
+      "split_file": "scale_results\\human_calibrated_100\\splits\\scale_50_split.json",
+      "train_episode_count": 40
+    },
+    {
+      "filter_sql": "e.episode_id IN ('episode_000352', 'episode_000392', 'episode_000425', 'episode_001146', 'episode_001860', 'episode_001972', 'episode_003087', 'episode_004196', 'episode_004417', 'episode_004558', 'episode_004655', 'episode_004679', 'episode_005164', 'episode_005957', 'episode_006115', 'episode_006181', 'episode_006686', 'episode_007275', 'episode_007884', 'episode_009653', 'episode_009999', 'episode_010365', 'episode_010821', 'episode_012601', 'episode_012632', 'episode_013031', 'episode_013182', 'episode_013395', 'episode_013597', 'episode_013880', 'episode_013972', 'episode_014040', 'episode_014392', 'episode_015003', 'episode_015256', 'episode_015910', 'episode_015925', 'episode_016049', 'episode_016381', 'episode_017359', 'episode_017444', 'episode_017546', 'episode_018420', 'episode_018682', 'episode_018799', 'episode_022418', 'episode_023219', 'episode_023403', 'episode_023723', 'episode_023803', 'episode_024322', 'episode_024504', 'episode_024911', 'episode_025553', 'episode_025712', 'episode_027072', 'episode_027473', 'episode_027734', 'episode_028427', 'episode_028645', 'episode_030159', 'episode_030540', 'episode_030928', 'episode_031894', 'episode_032021', 'episode_032442', 'episode_032806', 'episode_033512', 'episode_034313', 'episode_034676', 'episode_034781', 'episode_035007', 'episode_035339', 'episode_035348', 'episode_035436', 'episode_036021', 'episode_036031', 'episode_036781', 'episode_038230', 'episode_039624', 'episode_039719', 'episode_040506', 'episode_041922', 'episode_042129', 'episode_042380', 'episode_042954', 'episode_043068', 'episode_043842', 'episode_044074', 'episode_044796', 'episode_047428', 'episode_048598', 'episode_048956', 'episode_049140', 'episode_050382', 'episode_052330', 'episode_052491', 'episode_052759', 'episode_052810', 'episode_052920')",
+      "heldout_episode_count": 10,
+      "quality_distribution_heldout": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 7
+      },
+      "quality_distribution_train": {
+        "2": 5,
+        "3": 14,
+        "4": 29,
+        "5": 42
+      },
+      "size": 100,
+      "split_file": "scale_results\\human_calibrated_100\\splits\\scale_100_split.json",
+      "train_episode_count": 90
+    }
+  ],
+  "heldout_count": 10,
+  "quality_stratified": true,
+  "requested_sizes": [
+    25,
+    50,
+    100
+  ],
+  "seed": 0,
+  "snapshot_id": "snap_2026_05_11_1dde3edf5d_human_calibrated",
+  "stop_rule": "Planning only unless --run is passed. Do not run larger curves until Kevin approves the target N.",
+  "unavailable_sizes": []
+}

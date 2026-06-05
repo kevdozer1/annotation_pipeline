@@ -2,9 +2,9 @@
 
 **TOOL VALUE:** A user cloning this today gets a working local BridgeData-to-Parquet-to-VLM-labels-to-DuckDB/export/viewer POC; it can run end to end with the mock backend without an API key, but useful semantic labels require a real VLM backend.
 
-**MEASURED EFFECT:** A real 100-episode Gemini-labeled LeWM scale curve now exists; richer conditioning trends better than baseline at 25/50/100 episodes, but the 100-episode gap is small, two-seed, and not yet human-gold validated.
+**MEASURED EFFECT:** A score-calibrated 100-episode LeWM scale curve now exists; Kevin reviewed all 100 clips, changed 58 scores, and the rich-text + metadata + subgoal family beats baseline at N=25/50/100, including a 7.61% lower mean latent MSE at N=100.
 
-**BOTTOM LINE:** This is worth shipping as a research/demo scaffold for robot-dataset conditioning, label QA, and curation workflow discussion, but it should still be framed as a smoke-scale trend probe rather than proof that pi0.7-style conditioning improves policy-world-model learning.
+**BOTTOM LINE:** This is worth shipping as a research/demo scaffold with a real positive smoke result, but not as final proof that pi0.7-style conditioning robustly improves robot policy learning.
 
 ## Section A - Tool Value
 
@@ -15,16 +15,16 @@
 | Venv/install | WORKS | `python -m pip install -e .` completed in the existing `.venv`. | Basic Python package setup is fine on this machine. |
 | BridgeData ingest | WORKS | Ingest produced deterministic snapshots at 13, 50, remaining-50, and all-100 local episodes from `D:\bridgedata_v2_subset`. | Ingest is deterministic and can operate on Kevin's local BridgeData subset, which currently exposes 100 episodes. |
 | Snapshot storage | WORKS | Snapshot writes `manifest.json`, `episodes.parquet`, `steps.parquet`, `sensors.parquet`, and `labels.parquet`. | Plain Parquet snapshot layer works for the POC. It is not a production dataset versioning system. |
-| Two-stage semantic labeling | PARTIAL | Gemini-backed all-100 snapshot has 493 merged label rows: 100 metadata rows, 100 subtask rows, and 293 subgoal rows. Mock backend still works for CI. | The labeler pipeline works. The mock backend is scaffolding only. Gemini labels pass the gate but are top-heavy and not human-gold validated. |
-| Subgoal images | WORKS | Current snapshot has 39 subgoal image rows, one per segment. | This is deterministic end-of-segment frame extraction, not generated future subgoal images like pi0.7. |
-| Quality gate | WORKS, BUT HEURISTIC | Gemini all-100 snapshot passes: `Episode pass rate: 1.000`, quality counts `{2: 5, 4: 9, 5: 86}`. Mock snapshot fails due score collapse. | Useful as a benchmark blocker. It catches obvious bad labels, but it is not a substitute for human validation or score calibration. |
+| Two-stage semantic labeling | PARTIAL | Gemini-backed all-100 snapshot has 493 merged label rows: 100 metadata rows, 100 subtask rows, and 293 subgoal rows. Kevin then reviewed all 100 clips and changed 58 scores. Mock backend still works for CI. | The labeler pipeline works. The mock backend is scaffolding only. Scores are now human-calibrated, but subtask boundaries and subgoal selections are not human-validated. |
+| Subgoal images | WORKS | Current all-100 snapshot has 293 subgoal image rows, one per segment. | This is deterministic end-of-segment frame extraction, not generated future subgoal images like pi0.7. |
+| Quality gate | WORKS, BUT HEURISTIC | Human-calibrated all-100 snapshot passes: `Episode pass rate: 1.000`, quality counts `{2: 6, 3: 15, 4: 30, 5: 49}`. Mock snapshot fails due score collapse. | Useful as a benchmark blocker. It catches obvious bad labels, but it is not a substitute for boundary/subgoal validation. |
 | DuckDB query layer | WORKS | Five demo queries on the live snapshot returned in 21-28 ms. | This is one of the stronger parts of the project. Queryability is real. |
 | Export cut | WORKS | Export produced a 13-episode cut manifest and label path map. | Good enough for deterministic downstream wiring. It does not yet export full LeRobot/RLDS artifacts. |
 | Streamlit viewer | WORKS AT SMOKE LEVEL | Started on port 8765 and returned HTTP 200. | The app launches and can display snapshots. This was not a full UX QA pass. |
-| Figures/status artifacts | WORKS | `figures/quality_summary.png`, `figures/snapshot_overview.png`, and `figures/benchmark_placeholder.png` exist and regenerate. | Good for a demo status page. |
-| Gold-set reliability scaffold | PARTIAL | `bridgeengine.goldset init/report` exists and tests pass. | The tool is wired, but there are no real human gold labels yet. |
+| Figures/status artifacts | WORKS | `figures/quality_summary.png`, `figures/snapshot_overview.png`, and `figures/scale_curve_human_calibrated_100.png` exist. | Good for a demo status page. |
+| Gold-set reliability scaffold | PARTIAL | `bridgeengine.goldset init/report` exists and tests pass. Kevin filled score labels for 100/100 clips. | Score calibration is real. Boundary IoU, subgoal agreement, free-form notes, and calibration reasons are still not measured. |
 | Perception comparison labelers | PARTIAL/BROKEN IN THIS VENV | `system_check` found local artifacts/checkpoints, but Python imports for `torch`, `sam2`, `video_depth_anything`, and `cotracker` are missing. | The wrappers exist, but this environment cannot run live perception extraction right now. This is not blocking the pi0.7-style main pipeline. |
-| Benchmark runner | WORKS AS SMOKE-SCALE SCIENCE | `bridgeengine.benchmark.run_grid` and `bridgeengine.benchmark.scale_curve` run real LeWM frozen-adapter train/eval paths; the Gemini 100 scale curve writes CSV/plot/splits. | This is a real learned result, but still only a small conditioning adapter with 100 local episodes and two seeds, not a robust robotics conclusion. |
+| Benchmark runner | WORKS AS SMOKE-SCALE SCIENCE | `bridgeengine.benchmark.run_grid` and `bridgeengine.benchmark.scale_curve` run real LeWM frozen-adapter train/eval paths; the human-calibrated 100 scale curve writes CSV/plot/splits. | This is a real learned positive smoke result, but still only a small conditioning adapter with 100 local episodes and two seeds, not a robust robotics conclusion. |
 
 ### 2. Mock Quickstart End-to-End
 
@@ -91,47 +91,60 @@ I would not pitch this today to a production robotics team as a drop-in data pla
 
 ### 5. Benchmark Result Attempt
 
-I ran:
+Before calibration, I ran the Gemini-only curve:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot snap_2026_05_11_1dde3edf5d --sizes 25 50 100 --heldout-count 10 --quality-stratified --benchmark-seeds 0 1 --output-dir scale_results\gemini_100 --run
 ```
 
-It produced a real learned smoke-scale result using CUDA, Kevin's local LeWM checkpoint, a fixed held-out split per size, quality-stratified training mixtures, and 2 seeds per family:
+Then Kevin reviewed all 100 clips and changed only the curation scores. I applied those scores to:
+
+```text
+snap_2026_05_11_1dde3edf5d_human_calibrated
+```
+
+The original Gemini distribution was `{2: 5, 4: 9, 5: 86}`. Kevin's score calibration changed it to `{2: 6, 3: 15, 4: 30, 5: 49}`. No free-form notes, calibration reasons, subtask-boundary approvals, or subgoal approvals were intentionally entered, so only the score labels should be treated as human signal.
+
+I then ran:
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated --sizes 25 50 100 --heldout-count 10 --quality-stratified --benchmark-seeds 0 1 --output-dir scale_results\human_calibrated_100 --run
+```
+
+It produced a real learned smoke-scale result using CUDA, Kevin's local LeWM checkpoint, a fixed mixed-quality held-out split per size, quality-stratified training mixtures, and 2 seeds per family:
 
 ```text
 N=25:
-baseline:                    0.044892
-rich_text:                   0.045292
-rich_text_metadata:          0.041925
-rich_text_metadata_subgoal:  0.041327
+baseline:                    0.042079
+rich_text:                   0.041079
+rich_text_metadata:          0.039682
+rich_text_metadata_subgoal:  0.038022
 
 N=50:
-baseline:                    0.022307
-rich_text:                   0.022268
-rich_text_metadata:          0.020579
-rich_text_metadata_subgoal:  0.021179
+baseline:                    0.031014
+rich_text:                   0.030213
+rich_text_metadata:          0.028289
+rich_text_metadata_subgoal:  0.027482
 
 N=100:
-baseline:                    0.016242
-rich_text:                   0.016079
-rich_text_metadata:          0.016096
-rich_text_metadata_subgoal:  0.015647
+baseline:                    0.022522
+rich_text:                   0.023123
+rich_text_metadata:          0.022831
+rich_text_metadata_subgoal:  0.020807
 ```
 
-Scientific verdict: ENCOURAGING BUT STILL INCONCLUSIVE.
+Scientific verdict: POSITIVE SMOKE RESULT, STILL INCONCLUSIVE AS A GENERAL CLAIM.
 
-The real benchmark path now works, and the 100-episode Gemini scale curve shows richer conditioning beating baseline in mean latent MSE at all three tested sizes. The strongest mean gaps are at 25 and 50 episodes. At 100 episodes the subgoal family is 3.67% better than baseline, while metadata-only is 0.90% better than baseline.
+The real benchmark path now works, and the score-calibrated scale curve shows the rich-text + metadata + subgoal family beating baseline in mean latent MSE at all three tested sizes. The deltas versus baseline are `-9.64%` at N=25, `-11.39%` at N=50, and `-7.61%` at N=100. Text-only and metadata-only help at 25/50 but are slightly worse than baseline at N=100.
 
-This is not proof that pi0.7-style labels help in general. It is a small, two-seed, VLM-derived-label trend probe. The biggest weakness is that Gemini's score distribution is top-heavy: 86 of 100 episodes are `5/5`, and the held-out split contains only Gemini `5/5` episodes. That means the benchmark does not yet test whether metadata helps with mixed-quality held-out data.
+This is not proof that pi0.7-style labels help in general. It is a small, two-seed, VLM-derived-label trend probe with human-calibrated scores. The biggest remaining weakness is that subtask boundaries and subgoal selections have not been human-validated.
 
 ### Minimal Steps To Make The Number Stronger
 
-1. Fill a small gold set using `bridgeengine.goldset init`, then run `bridgeengine.goldset report` so the VLM-derived labels have measured reliability instead of just heuristic gate approval.
-2. Calibrate Gemini scoring against the human gold set, especially the overuse of `5/5`.
-3. Re-run the scale curve with a held-out split that includes low- and medium-quality episodes.
-4. Download or expose more BridgeData V2 episodes and run N > 100 only after a fresh cost gate.
-5. Replace the hashed text adapter with the actual language-conditioning path used by the downstream VLA or world-model stack, if available.
+1. Human-review subtask boundaries and subgoal selections for at least 25-50 episodes so temporal IoU and subgoal agreement are measured.
+2. Run at least 3 seeds per family on the calibrated snapshot.
+3. Download or expose more BridgeData V2 episodes and run N > 100 only after a fresh cost gate.
+4. Replace the hashed text adapter with the actual language-conditioning path used by the downstream VLA or world-model stack, if available.
 
 ### 6. Proven vs Unproven
 
@@ -144,40 +157,42 @@ Proven right now:
 - Raw VLM provenance and label payload paths are recorded.
 - The fake CPU-proxy benchmark has been removed from the normal path.
 - The current benchmark feeds the four family contents into a real LeWM train/eval path and writes learned held-out latent MSE.
-- The Gemini 100 scale curve trends positive for richer conditioning in mean latent MSE.
+- Kevin reviewed all 100 clips and calibrated the score distribution.
+- The score-calibrated 100 scale curve is positive for rich-text + metadata + subgoal conditioning in mean latent MSE.
 
 Unproven right now:
 
 - Rich-text conditioning robustly improves LEWM latent MSE beyond seed noise.
 - Metadata robustly improves beyond subtask text.
 - Subgoal keyframes robustly help beyond metadata.
-- VLM-derived segmentation is accurate enough against human labels.
+- VLM-derived segmentation is accurate enough against human boundary labels.
+- VLM-derived subgoal selections match human-selected subgoals.
 - The current quality gate correlates with downstream model usefulness.
 - The pipeline scales beyond this local 100-episode demo without cost, latency, or QA issues.
-- Gemini's `5/5`-heavy scoring is calibrated enough for strong curation decisions.
+- The positive two-seed result survives more seeds and larger N.
 - The perception comparison modules are runnable end to end in this venv; torch now imports, but SAM/VDA/CoTracker live dependencies still need their own check.
 
 ## Section C - The Honest Critique
 
 ### 7. Strongest Fair Case Against Value
 
-The harsh case is that BridgeEngine's positive 100-episode trend is still fragile. The label quality gate is heuristic and can pass labels that still contain semantic errors. Gemini is cheap, but its scoring is top-heavy enough that the metadata signal may be blunted or miscalibrated. The mock backend gives generic labels, and the real useful path depends on paid hosted VLM calls. Forge already covers much of the general robotics data-toolkit surface, including conversion, inspection, quality scoring, filtering, segmentation, visualization, and dataset discovery. BridgeEngine does not yet export standard training formats, does not have human-gold reliability numbers, and its LeWM benchmark is a frozen-adapter smoke test rather than a full downstream VLA training run. If someone asks "does this make robot models better?", the honest answer is "the first 100-episode smoke trend is positive, but not proven."
+The harsh case is that BridgeEngine's positive 100-episode trend is still fragile. The label quality gate is heuristic and can pass labels that still contain semantic errors. Kevin calibrated scores, but did not validate subtask boundaries or subgoal selections. The mock backend gives generic labels, and the real useful path depends on paid hosted VLM calls. Forge already covers much of the general robotics data-toolkit surface, including conversion, inspection, quality scoring, filtering, segmentation, visualization, and dataset discovery. BridgeEngine does not yet export standard training formats, does not have full human-gold reliability numbers, and its LeWM benchmark is a frozen-adapter smoke test rather than a full downstream VLA training run. If someone asks "does this make robot models better?", the honest answer is "the score-calibrated 100-episode smoke result is positive, but not proven beyond this setup."
 
 ### Honest Rebuttal
 
-The rebuttal is that the project does have real tool value if judged as a focused VLA data-conditioning POC rather than a general toolkit or completed paper. It turns raw BridgeData episodes into queryable, versioned, pi0.7-shaped label artifacts with provenance. It catches bad labels before benchmark entry. It exposes labels visually enough for a human to judge them. It now has a real LeWM scale-curve result, and the result is directionally more interesting than the earlier 13-episode null. The Gemini labels are cheap enough to support scale probes, and the raw provenance makes disagreement auditing possible. For an interview or research scaffold, that is meaningful. The missing pieces are human-gold reliability measurement, larger scale, and a stronger downstream conditioning interface.
+The rebuttal is that the project does have real tool value if judged as a focused VLA data-conditioning POC rather than a general toolkit or completed paper. It turns raw BridgeData episodes into queryable, versioned, pi0.7-shaped label artifacts with provenance. It catches bad labels before benchmark entry. It exposes labels visually enough for a human to judge them. It now has a real score-calibrated LeWM scale-curve result, and the result is materially stronger than the earlier 13-episode null and Gemini-only 100-episode curve. The Gemini labels are cheap enough to support scale probes, and the raw provenance makes disagreement auditing possible. For an interview or research scaffold, that is meaningful. The missing pieces are full human-gold reliability measurement, larger scale, and a stronger downstream conditioning interface.
 
 ### 8. Highest-Leverage Next Steps
 
-1. Build and score a human gold set for 13-50 episodes.
-Use the existing gold-set scaffold to measure temporal IoU for subtask boundaries, quality-score agreement, and subgoal agreement. This makes label reliability discussable instead of impressionistic.
+1. Human-score boundary and subgoal reliability.
+Kevin calibrated scores. The next reliability gap is temporal IoU for subtask boundaries and agreement on subgoal selections.
 
-2. Calibrate Gemini scoring and rerun the 100-episode scale curve.
-The biggest immediate risk is not cost; it is that Gemini overuses `5/5`. Fix the rubric against human gold labels and rerun before treating the trend as stable.
+2. Run the calibrated scale curve with more seeds and a larger N.
+The current result is positive, but two seeds and 100 episodes are still smoke-scale.
 
 3. Add real standard-format export or explicitly narrow the scope.
 Either implement LeRobot/RLDS export or stop implying this is a general robotics data pipeline. Right now Forge wins the general-tooling comparison; BridgeEngine should either interoperate with that ecosystem or stay sharply framed as semantic-conditioning infrastructure.
 
 ## Final Assessment
 
-The project is worth shipping as a public POC if the README and demo are honest: "This is a pi0.7-style annotation and curation layer for BridgeData with quality-gated benchmark plumbing, and the first 100-episode Gemini scale curve shows an encouraging but unproven conditioning trend." It is not worth shipping as a settled scientific result or as a general robotics data platform. The next serious milestone is measured label reliability plus calibrated scoring.
+The project is worth shipping as a public POC if the README and demo are honest: "This is a pi0.7-style annotation and curation layer for BridgeData with quality-gated benchmark plumbing, and the first score-calibrated 100-episode scale curve shows a positive but unproven metadata+subgoal result." It is not worth shipping as a settled scientific result or as a general robotics data platform. The next serious milestone is boundary/subgoal reliability plus more seeds.

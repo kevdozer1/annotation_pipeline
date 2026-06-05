@@ -2,9 +2,9 @@
 
 Prototype implementation of pi0.7 annotation pipeline on BridgeDataV2
 
-BridgeEngine is a Mode A proof-of-concept data engine for pi0.7-style robot annotation on BridgeData V2. It builds local Parquet snapshots, runs rich-prompt labelers, exposes DuckDB queries and a Streamlit viewer, exports deterministic training cuts, and keeps a 4-family label-value benchmark scaffold.
+BridgeEngine is a Mode A proof-of-concept data engine for pi0.7-style robot annotation on BridgeData V2. It builds local Parquet snapshots, runs rich-prompt labelers, exposes DuckDB queries and viewers, exports deterministic training cuts, and runs real LeWM frozen-adapter label-value benchmarks.
 
-The current pivot tests whether VLM-derived subtask segmentation is good enough to produce the pi0.7-style effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not part of the main benchmark. The current 13-episode real LeWM smoke ablation does **not** show a positive metadata effect: baseline is the best mean, and rich-text + metadata is within seed noise.
+The current pivot tests whether VLM-derived subtask segmentation plus calibrated episode metadata is enough to produce a pi0.7-style conditioning effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not part of the main benchmark. The current score-calibrated 100-episode LeWM smoke ablation is positive for the rich-text + metadata + subgoal family, but it is still a two-seed smoke result, not a robust robotics conclusion.
 
 ## Quickstart
 
@@ -13,13 +13,12 @@ PowerShell on this workstation:
 ```powershell
 cd C:\Users\Kevin\projects\annotation_pipeline
 .\.venv\Scripts\python.exe -m pip install -e .
-# Preferred hosted backend: set OPENAI_API_KEY in your shell or .secrets/openai_api_key.txt.
-# Comparison backend:
-.\scripts\set_moondream_key.ps1
+# Preferred low-cost hosted backend:
+.\scripts\set_gemini_key.ps1
 
 $SnapshotJson = .\.venv\Scripts\python.exe -m bridgeengine.ingest --source bridge_v2 --episodes 13
 $SnapshotId = $SnapshotJson | .\.venv\Scripts\python.exe -c "import json, sys; print(json.load(sys.stdin)['snapshot_id'])"
-.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend openai
+.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend gemini --vlm-model gemini-2.5-flash
 .\.venv\Scripts\python.exe -m bridgeengine.inspect_labels --snapshot $SnapshotId
 .\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot $SnapshotId
 .\.venv\Scripts\python.exe -m streamlit run bridgeengine/viewer/app.py
@@ -39,6 +38,7 @@ Backend selection:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend openai --vlm-model gpt-5.5
+.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend gemini --vlm-model gemini-2.5-flash
 .\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend moondream
 .\.venv\Scripts\python.exe -m bridgeengine.label --snapshot $SnapshotId --vlm-backend mock
 ```
@@ -77,7 +77,7 @@ Expected artifacts:
 - `bench_results/bench_bar.png`
 - `bench_results/bench_summary.md`
 
-Benchmark note: this is a smoke-scale real LeWM frozen-adapter ablation using a checked-in 10 train / 3 held-out episode split. It is useful for seeing whether the pipeline can produce learned held-out latent-MSE numbers, but it is not a robust 13-episode scientific conclusion.
+Benchmark note: this is a smoke-scale real LeWM frozen-adapter ablation. It is useful for seeing whether the pipeline can produce learned held-out latent-MSE numbers, but it is not a robust robotics conclusion.
 
 ## Architecture
 
@@ -106,16 +106,23 @@ BridgeData V2
 
 ## Current Benchmark Finding
 
-Latest real grid on `snap_2026_05_11_68c8cb784d`:
+Current best result on `snap_2026_05_11_1dde3edf5d_human_calibrated`:
 
-| Family | Mean latent MSE | Seed std | Delta vs baseline |
-|---|---:|---:|---:|
-| baseline | 0.039541 | 0.004444 | 0.0% |
-| rich_text | 0.042126 | 0.004554 | +6.5% |
-| rich_text_metadata | 0.040083 | 0.003849 | +1.4% |
-| rich_text_metadata_subgoal | 0.039926 | 0.004309 | +1.0% |
+| N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|---:|
+| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
+| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
+| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
 
-Read this as: the real benchmark path now works, but the current smoke result is inconclusive-to-negative for the pi0.7-style metadata claim. The richer families are fed into the model through a learned conditioning adapter, with dropout-aware handling for subtask/metadata fields and the subgoal image encoded by frozen LeWM. At this scale, baseline has the best mean and metadata does not beat baseline beyond seed noise.
+Delta versus baseline:
+
+| N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|
+| 25 | -2.38% | -5.70% | -9.64% |
+| 50 | -2.58% | -8.79% | -11.39% |
+| 100 | +2.67% | +1.37% | -7.61% |
+
+Read this as: the real benchmark path works, and after Kevin reviewed all 100 clips and changed 58 scores, the metadata+subgoal family beats baseline across the tested sizes. This is still a two-seed, 100-episode LeWM frozen-adapter smoke result. Boundary and subgoal labels have not been human-gold validated.
 
 ## Value-Aware Curation
 
@@ -130,7 +137,7 @@ The value interface has two methods:
 - `prediction-error`: trains a small LeWM frozen-adapter pass and scores episodes by per-episode latent prediction error. High error means anomalous/high-value.
 - `embedding-distance`: deterministic fallback using action/state/frame summary embeddings, centroid distance, and kNN sparsity.
 
-The report prints the value-score distribution, top outliers, and a tiered Parquet compression comparison. On the current 13-episode snapshot, prediction-error scoring ranks `episode_024911` highest. Tiered compression is larger than uniform zstd at this toy scale because split-file overhead dominates; this is expected to be meaningful only on larger snapshots.
+The report prints the value-score distribution, top outliers, and a tiered Parquet compression comparison. At tiny local scale, tiered compression can be larger than uniform zstd because split-file overhead dominates; this is expected to be meaningful only on larger snapshots.
 
 ## Cost-Gated Scaling
 
@@ -149,7 +156,7 @@ Before any larger hosted-VLM run, use the cost probe:
 .\.venv\Scripts\python.exe -m bridgeengine.cost_probe --snapshot $SnapshotId --projection 200 --projection 1000 --projection 60000
 ```
 
-The 50-episode `gpt-5.5` probe is documented in `COST_PROBE_50.md`. It measured about `$0.063316` per episode and 39.4 seconds per episode serially, with projected 60k labeling cost around `$3,798.94` and 656.81 serial hours. The 50-slice quality gate currently fails at 46/50 passing episodes due object-grounding heuristic issues, so it should not be used for scale-curve training without inspection or a gate/prompt fix.
+The 50-episode `gpt-5.5` probe is documented in `COST_PROBE_50.md`. It measured about `$0.063316` per episode and 39.4 seconds per episode serially, with projected 60k labeling cost around `$3,798.94` and 656.81 serial hours. The later Gemini all-100 run cost about `$1.188603` total, or `$0.011886` per episode, and the calibrated all-100 snapshot passes the quality gate.
 
 Scale-curve ablations are planned separately from labeling:
 

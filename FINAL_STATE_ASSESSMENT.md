@@ -88,24 +88,53 @@ That is enough to be useful to a foundation-model-adjacent researcher evaluating
 
 It is not yet a polished public robotics data product.
 
+## Completed Human Score Calibration
+
+Kevin reviewed all 100 clips in the dedicated GUI. The review pass changed scores only:
+
+- reviewed clips: `100 / 100`
+- score changes versus Gemini auto curation: `58 / 100`
+- review notes intentionally entered: `0`
+- calibration reasons intentionally entered: `0`
+- subtask-boundary accept toggles used: `0`
+- subgoal accept toggles used: `0`
+
+The original Gemini score distribution was `{2: 5, 4: 9, 5: 86}`. Kevin's calibrated score distribution is `{2: 6, 3: 15, 4: 30, 5: 49}`.
+
+Those scores were applied to a cloned snapshot:
+
+```text
+snap_2026_05_11_1dde3edf5d_human_calibrated
+```
+
+The calibrated snapshot passes the quality gate:
+
+```text
+Quality gate: PASS
+Episode pass rate: 1.000
+Quality counts: {2: 6, 3: 15, 4: 30, 5: 49}
+```
+
+Important caveat: this is score calibration, not full gold annotation. Boundary IoU and subgoal-selection agreement are still unmeasured.
+
 ## How Close This Is To The Final Useful Project
 
-For an internal demo and research scaffold: about 80 percent there. The remaining work is mostly calibration, documentation, and one more evidence pass.
+For an internal demo and research scaffold: about 90 percent there. The score calibration and calibrated scale curve are now done; the remaining work is mostly boundary/subgoal reliability, documentation polish, and one more seed/scale pass.
 
-For a genuinely useful open-source tool that other foundation-model/data teams could clone and adapt: about 55 percent there. The core ideas and local implementation exist, but the repo still assumes Kevin's local paths, BridgeData-style files, and a specific LeWM evaluation path.
+For a genuinely useful open-source tool that other foundation-model/data teams could clone and adapt: about 60 percent there. The core ideas and local implementation exist, but the repo still assumes Kevin's local paths, BridgeData-style files, and a specific LeWM evaluation path.
 
-For a publishable scientific claim that pi0.7-style labels improve robot model learning: about 35 percent there. There is now a real 100-episode positive trend, but it is two-seed, Gemini-score-heavy, and not human-gold calibrated.
+For a publishable scientific claim that pi0.7-style labels improve robot model learning: about 50 percent there. There is now a real score-calibrated 100-episode positive trend, but it is two-seed and still lacks boundary/subgoal gold validation.
 
 ## What Still Needs To Happen
 
-1. Human-calibrate the 100-episode set.
-   The immediate priority is not more API calls. It is reviewing enough episodes to measure whether Gemini's `5/5`-heavy grading matches Kevin's judgment. This GUI is built for exactly that.
+1. Human-review boundaries and subgoal selections.
+   The score calibration is complete. The remaining reliability gap is whether VLM-derived segment boundaries and subgoal frames match human judgment.
 
-2. Recompute reliability and calibrate the rubric.
-   After review, run `bridgeengine.goldset report`. If Gemini is over-scoring, update the scoring rubric or prompt and rerun only the necessary labels.
+2. Run more seeds on the calibrated scale curve.
+   The current trend is positive but still two-seed. A three- to five-seed rerun would make the variance more defensible.
 
-3. Rerun the 100-episode scale curve after calibration.
-   The current trend is encouraging but weak. The next result should report whether calibrated score thresholds change the conditioning gap.
+3. Scale beyond 100 only after a new cost gate.
+   The current local source exposes 100 episodes. Larger N requires more BridgeData V2 locally available.
 
 4. Make the repo modular.
    The future public repo should separate data adapters, VLM backends, scoring policies, exporters, and evaluators. This repo has most of those pieces, but they are still too tied to BridgeData and local snapshot conventions.
@@ -122,4 +151,4 @@ The strongest real value is not the model result yet. The strongest value is the
 
 That is a credible foundation-model data-engineering story. It is the kind of tool someone entering robot foundation-model work could learn from because it makes the hidden annotation and curation loop concrete.
 
-The weak point is still calibration. Until the human gold set exists, the project can say "we built the pipeline and found an encouraging smoke trend." It cannot yet say "these labels are reliable" or "this conditioning reliably improves robot learning."
+The weak point is now narrower: boundary and subgoal reliability. The project can say "we built the pipeline, score-calibrated all 100 clips, and found a positive metadata+subgoal smoke trend." It cannot yet say "all label fields are reliable" or "this conditioning reliably improves robot learning."
