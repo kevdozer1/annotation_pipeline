@@ -29,3 +29,4 @@ streamlit.err.log
 streamlit.live.out.log
 streamlit.live.err.log
 streamlit.*.log
+review_gui.*.log

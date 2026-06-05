@@ -2,7 +2,24 @@
 
 Last updated: 2026-06-05
 
-## What Changed In This Pass
+## Latest GUI Update
+
+The preferred human-review interface is now the dedicated browser GUI:
+
+```powershell
+cd C:\Users\Kevin\projects\annotation_pipeline
+.\.venv\Scripts\python.exe -m bridgeengine.review_gui --snapshot snap_2026_05_11_1dde3edf5d --port 8787
+```
+
+Open:
+
+```text
+http://127.0.0.1:8787
+```
+
+This GUI is better than the Streamlit tab for calibration review. It presents a persistent video player, a scrollable episode queue, auto metadata, subtask timeline, subgoal frames, score controls, and a `Save review and next` button that immediately advances to the next unreviewed episode.
+
+## What Changed In The Calibration Pass
 
 The Streamlit viewer now has a `Calibration` tab for human score review. It lets Kevin move through the local 100-episode snapshot, watch each episode video or frame sequence, inspect the auto subtask timeline, see the model-generated metadata, assign a calibrated 1-5 curation score, mark visible mistakes, write notes, and optionally accept auto subtask boundaries or subgoal frames for reliability scoring.
 
@@ -14,7 +31,7 @@ bridgeengine_data/snapshots/<snapshot_id>/gold/calibration_gold.json
 
 This is intentionally the same gold-set JSON format used by `bridgeengine.goldset report`, so the GUI is not just a viewer. It creates measurable calibration data.
 
-## How To Use The Calibration GUI
+## How To Use The Streamlit Calibration GUI
 
 Start the viewer:
 
