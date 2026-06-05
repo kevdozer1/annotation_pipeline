@@ -1,0 +1,45 @@
+{
+  "heldout_episode_ids": [
+    "episode_000352",
+    "episode_000392",
+    "episode_005957",
+    "episode_006181",
+    "episode_010821",
+    "episode_015256",
+    "episode_015925",
+    "episode_017546",
+    "episode_028645",
+    "episode_042129"
+  ],
+  "note": "Scale-curve split. Held-out ids are fixed and disjoint from the nested training pools for all planned sizes.",
+  "quality_distribution_heldout": {
+    "5": 10
+  },
+  "quality_distribution_train": {
+    "2": 5,
+    "4": 5,
+    "5": 5
+  },
+  "quality_stratified": true,
+  "seed": 0,
+  "size": 25,
+  "snapshot_reference": "snap_2026_05_11_1dde3edf5d",
+  "split_id": "scale_25_fdbc427dc9",
+  "train_episode_ids": [
+    "episode_000425",
+    "episode_001146",
+    "episode_001860",
+    "episode_001972",
+    "episode_003087",
+    "episode_007275",
+    "episode_012632",
+    "episode_016381",
+    "episode_017444",
+    "episode_018420",
+    "episode_025712",
+    "episode_035339",
+    "episode_035348",
+    "episode_043842",
+    "episode_052920"
+  ]
+}

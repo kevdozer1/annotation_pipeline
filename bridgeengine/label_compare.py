@@ -29,6 +29,8 @@ def compare_snapshots(
     merged["curation_abs_diff"] = (merged["curation_quality_left"] - merged["curation_quality_right"]).abs()
     merged["task_success_abs_diff"] = (merged["task_success_quality_left"] - merged["task_success_quality_right"]).abs()
     merged["keep_agree"] = merged["curation_keep_left"] == merged["curation_keep_right"]
+    if "task" not in merged.columns:
+        merged["task"] = merged.get("task_left", merged.get("task_right", ""))
     report = {
         "left_snapshot_id": left_snapshot,
         "right_snapshot_id": right_snapshot,

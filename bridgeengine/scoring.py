@@ -12,7 +12,7 @@ import pandas as pd
 from bridgeengine.paths import data_root as resolve_data_root
 
 
-SCORING_VERSION = "boundary-usefulness-v2"
+SCORING_VERSION = "boundary-usefulness-v3"
 
 
 @dataclass(frozen=True)
@@ -158,6 +158,16 @@ def score_metadata_for_curation(
         quality = 2
         boundary = "partial" if structure_score >= 3 else "weak"
         scoring_reason = "reject: visible structure is tied to the wrong or missing target object"
+    elif (
+        task_success_quality is not None
+        and task_success_quality >= 5
+        and not mistake
+        and not strong_reject
+        and (structure_score >= 2 or _pickup_success_reason(reason))
+    ):
+        quality = 5
+        boundary = "clear"
+        scoring_reason = "clear keep: successful task with visible contact/transport structure"
     elif structure_score >= 4 and len(segments) >= 2:
         boundary = "clear"
         if task_success_quality is not None and task_success_quality >= 4 and not mistake and len(segments) >= 4:
@@ -281,6 +291,10 @@ def _localized_end_state_attempt(segments: list[dict[str, Any]], structure_score
         return False
     text = " ".join(str(segment.get("subtask_text", "")).lower() for segment in segments)
     return bool(re.search(r"\b(grip|grasp|stabilize|lower|position|contact|hold)\b", text))
+
+
+def _pickup_success_reason(reason: str) -> bool:
+    return bool(re.search(r"\b(lift|lifted|pick up|picked up|pickup|picked)\b", reason))
 
 
 def _segment_payloads(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:

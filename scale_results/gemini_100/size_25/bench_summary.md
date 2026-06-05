@@ -1,0 +1,3 @@
+# Benchmark Summary
+
+The Mode A grid contains 8 runs: 4 annotation families x 3 seeds. rich_text_metadata_subgoal is the best-scoring family in this POC table (0.041327 latent MSE), beating baseline by 7.9% at 13 episodes. The rich-text conditions use VLM-derived subtask segmentation quality, so this should be read as a test of whether hosted-VLM segmentation is enough to produce the pi0.7 effect, not as a claim about ideal human-validated segmentation. Benchmark backend: `real_lewm_frozen_adapter`. Rich-text + metadata is -6.6% relative to baseline (within seed-noise by the simple std-sum check). At 13 episodes this is a smoke-scale ablation, not a robust conclusion.

@@ -178,9 +178,10 @@ class MoondreamAPIBackend:
 class GeminiGenerateContentBackend:
     name = "gemini_generate_content"
 
-    def __init__(self, model: str = DEFAULT_GEMINI_VLM_MODEL, timeout_seconds: float = 120.0):
+    def __init__(self, model: str = DEFAULT_GEMINI_VLM_MODEL, timeout_seconds: float = 120.0, max_retries: int = 8):
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.max_retries = max_retries
         self.api_key = (
             _load_secret("GEMINI_API_KEY", ".secrets/gemini_api_key.txt")
             or _load_secret("GOOGLE_API_KEY", ".secrets/google_api_key.txt")
@@ -198,6 +199,18 @@ class GeminiGenerateContentBackend:
         question: str,
         raw_output_path: Path,
     ) -> BackendResponse:
+        cached = _read_successful_raw(raw_output_path, self.name, self.model)
+        if cached is not None:
+            answer = _extract_gemini_text(cached["response_json"])
+            return BackendResponse(
+                answer=answer,
+                raw=cached,
+                backend_name=self.name,
+                model=self.model,
+                elapsed_seconds=0.0,
+                estimated_cost_usd=_estimate_gemini_cost(cached["response_json"], self.model),
+            )
+
         image = make_contact_sheet(frames, keyframe_indices)
         image_data = _image_to_data_url(image).split(",", 1)[1]
         endpoint = GEMINI_GENERATE_URL.format(model=self.model)
@@ -223,22 +236,44 @@ class GeminiGenerateContentBackend:
             "question": question,
             "keyframe_indices": keyframe_indices,
             "request_image_note": "base64 omitted from raw provenance",
+            "attempts": [],
         }
         t0 = time.perf_counter()
         try:
-            response = requests.post(
-                endpoint,
-                params={"key": self.api_key},
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=self.timeout_seconds,
-            )
+            last_response = None
+            for attempt in range(self.max_retries + 1):
+                response = requests.post(
+                    endpoint,
+                    headers={"Content-Type": "application/json", "X-Goog-Api-Key": self.api_key},
+                    json=payload,
+                    timeout=self.timeout_seconds,
+                )
+                last_response = response
+                raw_record["attempts"].append(
+                    {
+                        "attempt": attempt + 1,
+                        "status_code": response.status_code,
+                        "elapsed_seconds": round(time.perf_counter() - t0, 6),
+                    }
+                )
+                if response.status_code not in {429, 500, 502, 503, 504}:
+                    break
+                if attempt >= self.max_retries:
+                    break
+                time.sleep(min(2.0 ** attempt, 12.0))
+
+            if last_response is None:
+                raise RuntimeError("Gemini request did not produce a response")
             elapsed = time.perf_counter() - t0
-            raw_record["status_code"] = response.status_code
+            raw_record["status_code"] = last_response.status_code
             raw_record["elapsed_seconds"] = elapsed
-            raw_record["response_text"] = response.text
-            response.raise_for_status()
-            data = response.json()
+            raw_record["response_text"] = last_response.text
+            if not 200 <= last_response.status_code < 300:
+                raise RuntimeError(
+                    f"Gemini API request failed for model {self.model}: "
+                    f"HTTP {last_response.status_code}; response excerpt: {last_response.text[:300]}"
+                )
+            data = last_response.json()
             raw_record["response_json"] = data
             answer = _extract_gemini_text(data)
             return BackendResponse(answer, raw_record, self.name, self.model, elapsed, _estimate_gemini_cost(data, self.model))
@@ -323,6 +358,26 @@ def _extract_gemini_text(data: dict[str, Any]) -> str:
             if part.get("text"):
                 chunks.append(str(part["text"]))
     return "\n".join(chunks)
+
+
+def _read_successful_raw(path: Path, backend_name: str, model: str) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if data.get("backend") != backend_name or data.get("model") != model:
+        return None
+    if int(data.get("status_code") or 0) != 200:
+        return None
+    response_json = data.get("response_json")
+    if not isinstance(response_json, dict):
+        return None
+    if not _extract_gemini_text(response_json).strip():
+        return None
+    data["cache_hit"] = True
+    return data
 
 
 def _estimate_gemini_cost(data: dict[str, Any], model: str) -> float | None:

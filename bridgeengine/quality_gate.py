@@ -139,7 +139,7 @@ def _check_metadata(episode_id: str, metadata: dict[str, Any]) -> list[GateIssue
         issues.append(GateIssue(episode_id, "metadata_quality", "missing quality"))
         return issues
     success_words = {"success", "successfully", "completed", "clean", "placed", "resting", "inside"}
-    failure_words = {"fail", "failed", "wrong", "incomplete", "mistake", "incorrect", "drop"}
+    failure_words = {"fail", "failed", "failing", "unfinished", "wrong", "incomplete", "mistake", "incorrect", "drop"}
     says_success = _has_unnegated_word(lower, success_words)
     says_failure = _has_unnegated_word(lower, failure_words)
     consistency_quality = task_quality if metadata.get("task_success_quality") is not None else quality
@@ -175,6 +175,7 @@ def _object_like_tokens(text: str) -> list[str]:
         "grey",
         "leave",
         "lift",
+        "grasping",
         "metal",
         "move",
         "object",
@@ -186,6 +187,7 @@ def _object_like_tokens(text: str) -> list[str]:
         "pickup",
         "pink",
         "release",
+        "retract",
         "red",
         "settle",
         "silver",

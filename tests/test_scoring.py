@@ -99,3 +99,22 @@ def test_curation_score_clear_keeps_long_stacked_boundaries() -> None:
     assert score.curation_quality == 5
     assert score.curation_keep is True
     assert score.boundary_clarity == "clear"
+
+
+def test_curation_score_clear_keeps_successful_pickup_without_release() -> None:
+    metadata = {
+        "quality": 5,
+        "task_success_quality": 5,
+        "mistake": False,
+        "reason": "The robot successfully approached, grasped, and lifted the pan off the stove, fully completing the task.",
+    }
+    segments = [
+        {"segment_idx": 0, "start_step": 0, "end_step": 4, "subtask_text": "grasp pan handle"},
+        {"segment_idx": 1, "start_step": 5, "end_step": 14, "subtask_text": "lift pan from stove"},
+    ]
+
+    score = score_metadata_for_curation("episode_pickup", metadata, segments)
+
+    assert score.curation_quality == 5
+    assert score.curation_keep is True
+    assert score.boundary_clarity == "clear"

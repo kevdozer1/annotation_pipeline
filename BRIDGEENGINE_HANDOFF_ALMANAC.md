@@ -15,9 +15,16 @@ BridgeEngine is a local robot-dataset annotation and curation pipeline for Bridg
 - a quality gate that refuses bad labels before benchmark entry
 - DuckDB query, deterministic export, Streamlit viewer, figures, and a LeWM smoke benchmark
 
-Current honest scientific result: the first real 13-episode LeWM frozen-adapter ablation did not show a metadata win. Baseline had the best mean latent MSE. This is useful as an honest smoke result, not as a robust conclusion.
+Current honest scientific result: the first real 100-episode Gemini-labeled LeWM scale curve exists. Richer conditioning improves mean held-out latent MSE at 25 and 50 episodes, and the subgoal family remains slightly better than baseline at 100 episodes, but the 100-episode gap is small and within two-seed noise. Treat this as a smoke-scale trend probe, not a robust robotics result.
 
-Current main blocker: Gemini labeling cannot run in this process because neither `GEMINI_API_KEY` nor `GOOGLE_API_KEY` is visible, and `.secrets/gemini_api_key.txt` does not exist yet. The backend and resume commands are ready.
+Current main blockers: no human gold set has been filled, Gemini grading is useful but top-heavy, and the local SSD source exposes only 100 episodes. Larger scale requires downloading more BridgeData V2 or pointing ingest at a larger local source.
+
+Latest live state:
+
+- Gemini 50 comparison snapshot is labeled, gate-passing, and much cheaper than OpenAI.
+- Remaining local 50 episodes are labeled with Gemini and gate-passing.
+- The all-100 snapshot has merged Gemini labels without duplicate API spend.
+- A real LeWM scale curve over N = 25, 50, 100 has run with two seeds per family.
 
 ## Current Workspace
 
@@ -520,34 +527,55 @@ Note: the earlier `COST_PROBE_50.md` says the gate failed because of object-grou
 snap_2026_05_11_de43f7bf0b_gemini50
 ```
 
-Created by cloning the OpenAI 50 snapshot and clearing labels.
+Created by cloning the OpenAI 50 snapshot and clearing labels. It has now been relabeled with Gemini 2.5 Flash.
 
-Current state: unlabeled. Gemini label command failed because the key was not available.
-
-Resume command after setting the key:
+Label command used:
 
 ```powershell
-.\scripts\set_gemini_key.ps1
-
 .\.venv\Scripts\python.exe -m bridgeengine.label `
   --snapshot snap_2026_05_11_de43f7bf0b_gemini50 `
   --vlm-backend gemini `
   --vlm-model gemini-2.5-flash
 ```
 
-Then run:
+Observed labeling output:
 
-```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_de43f7bf0b_gemini50
-
-.\.venv\Scripts\python.exe -m bridgeengine.cost_probe `
-  --snapshot snap_2026_05_11_de43f7bf0b_gemini50 `
-  --projection 100 --projection 200 --projection 1000
-
-.\.venv\Scripts\python.exe -m bridgeengine.label_compare `
-  --left-snapshot snap_2026_05_11_de43f7bf0b `
-  --right-snapshot snap_2026_05_11_de43f7bf0b_gemini50
+```text
+label_rows: 247
+episode_metadata rows: 50
+subtask_segmenter rows: 50
+subgoal_images rows: 147
+semantic label wall-clock: 406.31s
 ```
+
+Gate and cost:
+
+```text
+Quality gate: PASS
+Episode pass rate: 1.000
+Quality counts: {2: 3, 4: 5, 5: 42}
+Estimated total cost: $0.627729
+Cost per episode: $0.012555
+Projected cost at 100: $1.26
+Projected cost at 200: $2.51
+Projected cost at 1000: $12.55
+```
+
+Key comparison against OpenAI 50:
+
+```text
+overlap: 50 episodes
+curation exact agreement: 0.440
+curation within-one agreement: 0.860
+mean absolute curation difference: 0.800
+task-success exact agreement: 0.420
+task-success within-one agreement: 0.760
+keep-decision agreement: 0.860
+OpenAI distribution: {1: 2, 2: 1, 3: 5, 4: 17, 5: 25}
+Gemini distribution: {2: 3, 4: 5, 5: 42}
+```
+
+Interpretation: Gemini is dramatically cheaper and gate-passing, but much more generous. The high keep-decision agreement is useful for coarse curation; the top-heavy score distribution is a limitation for metadata-conditioning experiments.
 
 ### Remaining-50 Local Snapshot
 
@@ -557,15 +585,27 @@ snap_2026_05_11_48710ffc52
 
 This is the deterministic offset-50 ingest target from the same local 100-episode source.
 
-Current state: unlabeled.
+Current state: labeled with Gemini 2.5 Flash.
 
-If the Gemini 50 cost probe is safely under the $10 budget, label this next:
+Label command used:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.label `
   --snapshot snap_2026_05_11_48710ffc52 `
   --vlm-backend gemini `
   --vlm-model gemini-2.5-flash
+```
+
+Observed output:
+
+```text
+label_rows: 246
+Quality gate: PASS
+Quality counts: {2: 2, 4: 4, 5: 44}
+Estimated total cost: $0.560874
+Cost per episode: $0.011217
+semantic label wall-clock: 1263.13s
+mistake distribution: false 45, true 5
 ```
 
 ### All-100 Local Snapshot
@@ -576,24 +616,46 @@ snap_2026_05_11_1dde3edf5d
 
 This is the deterministic all-local-episodes snapshot.
 
-Current state: unlabeled.
-
-If cost is low enough, the simplest path is to label this directly:
+Current state: labeled by merging the Gemini first-50 and remaining-50 label artifacts, avoiding duplicate API spend.
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.label `
-  --snapshot snap_2026_05_11_1dde3edf5d `
-  --vlm-backend gemini `
-  --vlm-model gemini-2.5-flash
+.\.venv\Scripts\python.exe -m bridgeengine.snapshot_merge `
+  --target-snapshot snap_2026_05_11_1dde3edf5d `
+  --source-snapshot snap_2026_05_11_de43f7bf0b_gemini50 `
+  --source-snapshot snap_2026_05_11_48710ffc52 `
+  --overwrite-labels
 ```
 
-That duplicates the first 50 Gemini labels if `gemini50` was already labeled. A better next engineering step is a label-merge utility that combines the first-50 and remaining-50 labeled snapshots into the all-100 snapshot without duplicate API spend.
+Merged output:
 
-## OpenAI vs Gemini Comparison Plan
+```text
+merged_label_rows: 493
+merged_metadata_episode_count: 100
+missing_metadata_episode_count: 0
+```
+
+Merged all-100 gate and cost:
+
+```text
+Quality gate: PASS
+Episode pass rate: 1.000
+Quality counts: {2: 5, 4: 9, 5: 86}
+Mistake distribution: false 89, true 11
+Estimated total cost: $1.188603
+Cost per episode: $0.011886
+Projected cost at 200: $2.38
+Projected cost at 1000: $11.89
+Projected cost at 60000: $713.16
+semantic label wall-clock total: 1669.44s
+```
+
+Important caveat: the merged all-100 labels are benchmark-usable according to the heuristic gate, but the quality distribution is strongly top-heavy. Human gold labels are still needed before treating the score calibration as reliable.
+
+## OpenAI vs Gemini Comparison Result
 
 Purpose: compare whether Gemini grades episodes similarly to OpenAI on the same 50 episodes.
 
-Prepared command:
+Command:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.label_compare `
@@ -601,68 +663,99 @@ Prepared command:
   --right-snapshot snap_2026_05_11_de43f7bf0b_gemini50
 ```
 
-Report metrics:
+Observed metrics:
 
-- overlap episode count
-- curation-quality exact agreement
-- curation-quality within-one agreement
-- curation mean absolute difference
-- task-success exact agreement
-- task-success within-one agreement
-- keep/reject decision agreement
-- left and right score distributions
-- top disagreements with reasons
+```text
+overlap episode count: 50
+curation-quality exact agreement: 0.440
+curation-quality within-one agreement: 0.860
+curation mean absolute difference: 0.800
+task-success exact agreement: 0.420
+task-success within-one agreement: 0.760
+keep/reject decision agreement: 0.860
+OpenAI curation distribution: {1: 2, 2: 1, 3: 5, 4: 17, 5: 25}
+Gemini curation distribution: {2: 3, 4: 5, 5: 42}
+```
 
-Suggested interpretation:
+Largest disagreements:
 
-- exact agreement around 50 percent can still be acceptable if within-one agreement is high and keep/reject agreement is high
-- large keep/reject disagreement means the scoring/rubric is not stable enough to run scale-curve training
-- Gemini quality distribution should not collapse to one or two scores
+```text
+episode_001972: OpenAI 1, Gemini 5, task put pan on stove from sink
+episode_013031: OpenAI 1, Gemini 5, task put spoon in pot
+episode_052920: OpenAI 5, Gemini 2, task put cup from counter or drying rack into sink
+episode_005164: OpenAI 3, Gemini 5, task put cup from anywhere into sink
+episode_006115: OpenAI 3, Gemini 5, task put pot on stove which is near stove
+```
 
-## Scale-Curve Plan
+Interpretation: Gemini is good enough for a low-cost scale probe, but not yet proven as a stable grader. It agrees with OpenAI on the keep/reject decision for 86 percent of the first 50, while assigning many more `5/5` curation scores. The next reliability step is human gold scoring on the disagreement set, not more model-to-model debate.
 
-The desired first real scale curve:
+## Scale-Curve Result
+
+The first real scale curve has now run:
 
 ```text
 N = [25, 50, 100]
 families = baseline, rich_text, rich_text_metadata, rich_text_metadata_subgoal
-seeds = 2 or 3
-held-out split fixed and disjoint
+seeds = 2
+held-out split fixed and disjoint for each N
 quality-stratified training mixtures enabled
+backend = real_lewm_frozen_adapter
+device = CUDA
+snapshot = snap_2026_05_11_1dde3edf5d
 ```
 
-Command shape:
+Command used:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve `
-  --snapshot <labeled_100_snapshot> `
+  --snapshot snap_2026_05_11_1dde3edf5d `
   --sizes 25 50 100 `
   --heldout-count 10 `
   --quality-stratified `
-  --seeds 0 1 `
-  --output-dir scale_results\gemini_100
+  --benchmark-seeds 0 1 `
+  --output-dir scale_results\gemini_100 `
+  --run
 ```
 
-Do not run this until:
+Result files:
 
-1. the Gemini labels pass quality gate
-2. the OpenAI-vs-Gemini agreement is acceptable
-3. Kevin approves spend/time
-4. a labeled 100-episode snapshot exists
+```text
+scale_results/gemini_100/scale_curve_results.csv
+scale_results/gemini_100/scale_curve.png
+scale_results/gemini_100/scale_curve_plan.json
+```
 
-If only the first 50 are labeled, run a 25/50 plan only, not 100.
+Mean held-out latent MSE:
+
+| N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|---:|
+| 25 | 0.044892 | 0.045292 | 0.041925 | 0.041327 |
+| 50 | 0.022307 | 0.022268 | 0.020579 | 0.021179 |
+| 100 | 0.016242 | 0.016079 | 0.016096 | 0.015647 |
+
+Delta versus baseline, lower is better:
+
+| N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
+|---:|---:|---:|---:|
+| 25 | +0.89% | -6.61% | -7.94% |
+| 50 | -0.17% | -7.74% | -5.06% |
+| 100 | -1.00% | -0.90% | -3.67% |
+
+Interpretation: richer conditioning trends better than baseline at all three sizes, with the strongest mean gap at 25 and 50 episodes. At 100 episodes the gap shrinks and overlaps seed noise. This is a useful smoke-scale trend, not a claim that pi0.7-style conditioning reliably improves robot policy learning.
+
+Important split caveat: the held-out split is all `5/5` under Gemini's curation scores because the Gemini distribution is top-heavy. The quality-stratified training pools include the available `2/5` and `4/5` episodes, but the held-out mix does not test low-quality generalization yet.
 
 ## Known Issues
 
-1. Gemini live run is blocked until `GEMINI_API_KEY` or `GOOGLE_API_KEY` is set for this repo.
-2. No human gold set has been filled, so label reliability is heuristic/gate-based, not measured against human labels.
-3. The 13-episode benchmark is real but smoke-scale and negative/inconclusive.
-4. The 50-episode OpenAI labels are useful but were generated under an evolving scoring rubric.
-5. The all-100 snapshot is ingested but unlabeled.
-6. Tiered compression is net-negative at 50 episodes.
+1. No human gold set has been filled, so label reliability is heuristic/gate-based, not measured against human labels.
+2. Gemini grading is top-heavy: 86 of 100 local episodes are `5/5`, which may undercut metadata-conditioning experiments.
+3. The 100-episode scale curve is real but smoke-scale, two-seed, and still not a robust robotics conclusion.
+4. The held-out scale-curve split contains only Gemini `5/5` episodes, so low-quality generalization is not evaluated yet.
+5. The 50-episode OpenAI labels are useful but were generated under an evolving scoring rubric.
+6. Tiered compression is net-negative at 50 episodes because per-file/layout overhead dominates.
 7. Standard RLDS/LeRobot export is not implemented.
 8. Perceptive labelers exist as comparison wrappers but SAM/VDA/CoTracker runtime dependencies are not fully installed.
-9. No label-merge utility exists yet to combine separately labeled 50+50 snapshots into a clean 100 snapshot without duplicate labeling.
+9. The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus. Larger N requires downloading more data or pointing ingest at a larger source.
 
 ## Files And Modules Almanac
 
@@ -694,6 +787,7 @@ Core package:
 - `bridgeengine/cost_probe.py`: token/cost/wall-clock report for VLM labels
 - `bridgeengine/label_compare.py`: model-to-model metadata grading comparison
 - `bridgeengine/snapshot_clone.py`: clone deterministic snapshots under a new ID
+- `bridgeengine/snapshot_merge.py`: merge label artifacts from labeled slice snapshots into a target snapshot without duplicate API spend
 
 Tests:
 
@@ -716,48 +810,26 @@ Most recent targeted checks:
 
 ```text
 quality_report snap_2026_05_11_de43f7bf0b: PASS
+quality_report snap_2026_05_11_de43f7bf0b_gemini50: PASS
+quality_report snap_2026_05_11_48710ffc52: PASS
+quality_report snap_2026_05_11_1dde3edf5d: PASS
 targeted scoring/gate tests: PASS
 figures regenerated: PASS
-Gemini command: BLOCKED by missing key
+Gemini 50 labeling: PASS
+Gemini remaining-50 labeling: PASS
+All-100 label merge: PASS
+Real scale curve N=25/50/100, 2 seeds: PASS
 ```
 
 ## Recommended Next Work Order
 
-1. Set Gemini key:
-
-```powershell
-.\scripts\set_gemini_key.ps1
-```
-
-2. Label Gemini 50 comparison snapshot:
-
-```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot snap_2026_05_11_de43f7bf0b_gemini50 --vlm-backend gemini --vlm-model gemini-2.5-flash
-```
-
-3. Run quality/cost/compare:
-
-```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_de43f7bf0b_gemini50
-.\.venv\Scripts\python.exe -m bridgeengine.cost_probe --snapshot snap_2026_05_11_de43f7bf0b_gemini50 --projection 100 --projection 200 --projection 1000
-.\.venv\Scripts\python.exe -m bridgeengine.label_compare --left-snapshot snap_2026_05_11_de43f7bf0b --right-snapshot snap_2026_05_11_de43f7bf0b_gemini50
-```
-
-4. Inspect top disagreements manually in the viewer or raw payloads.
-
-5. If Gemini quality and cost are acceptable, label the remaining 50:
-
-```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.label --snapshot snap_2026_05_11_48710ffc52 --vlm-backend gemini --vlm-model gemini-2.5-flash
-```
-
-6. Either implement a label-merge utility or label the all-100 snapshot directly.
-
-7. Run the 25/50/100 real scale curve only after a labeled 100 snapshot exists.
-
-8. Fill a human gold set for at least 13 to 25 episodes and run reliability reporting.
-
-9. Update `VALUE_REPORT.md`, `STATUS.md`, and README with the Gemini comparison and scale-curve result.
+1. Inspect Gemini/OpenAI disagreement episodes manually in the viewer, especially episodes where one model says reject and the other says clear keep.
+2. Fill a human gold set for at least 13 to 25 episodes and run reliability reporting.
+3. Calibrate the quality rubric against the gold set, with special attention to Gemini's overuse of `5/5`.
+4. Re-run the scale curve after calibration if the human-gold changes materially alter the score distribution.
+5. Download or expose more BridgeData V2 episodes if Kevin wants N > 100. Do not spend on full-corpus labeling without a fresh cost gate.
+6. Implement RLDS or LeRobot export only if the project is meant to interoperate with standard training stacks rather than stay as a BridgeEngine-native POC.
+7. Update `VALUE_REPORT.md`, `STATUS.md`, and README with the Gemini comparison and scale-curve result before publicizing the repo.
 
 ## How To Demo Today
 
@@ -790,4 +862,3 @@ Do claim:
 - bad labels can be gated before training
 - a real LeWM smoke ablation exists
 - the project has a clean path to Gemini-based 100-episode scale testing
-
