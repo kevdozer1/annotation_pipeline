@@ -14,6 +14,8 @@ from .moondream_client import _image_to_data_url, make_contact_sheet
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_OPENAI_VLM_MODEL = "gpt-5.5"
+GEMINI_GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+DEFAULT_GEMINI_VLM_MODEL = "gemini-2.5-flash"
 
 
 @dataclass(frozen=True)
@@ -49,9 +51,13 @@ def build_vlm_backend(
         return OpenAIResponsesBackend(model=model or os.environ.get("BRIDGEENGINE_VLM_MODEL") or DEFAULT_OPENAI_VLM_MODEL)
     if name in {"moondream", "moondream_api"}:
         return MoondreamAPIBackend(model=model or os.environ.get("MOONDREAM_MODEL") or "vikhyatk/moondream2")
+    if name in {"gemini", "google", "google_gemini"}:
+        return GeminiGenerateContentBackend(
+            model=model or os.environ.get("GEMINI_MODEL") or os.environ.get("BRIDGEENGINE_VLM_MODEL") or DEFAULT_GEMINI_VLM_MODEL
+        )
     if name in {"mock", "test"}:
         return MockVisionLanguageBackend(model=model or "mock-vlm")
-    raise ValueError(f"Unknown VLM backend {backend_name!r}; expected openai, moondream, or mock")
+    raise ValueError(f"Unknown VLM backend {backend_name!r}; expected openai, gemini, moondream, or mock")
 
 
 class OpenAIResponsesBackend:
@@ -169,6 +175,77 @@ class MoondreamAPIBackend:
             _write_raw(raw_output_path, raw_record)
 
 
+class GeminiGenerateContentBackend:
+    name = "gemini_generate_content"
+
+    def __init__(self, model: str = DEFAULT_GEMINI_VLM_MODEL, timeout_seconds: float = 120.0):
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+        self.api_key = (
+            _load_secret("GEMINI_API_KEY", ".secrets/gemini_api_key.txt")
+            or _load_secret("GOOGLE_API_KEY", ".secrets/google_api_key.txt")
+        )
+        if not self.api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY or GOOGLE_API_KEY is not set. Run scripts/set_gemini_key.ps1, "
+                "set the env var, or pass --allow-fallback for scaffolding-only runs."
+            )
+
+    def query_contact_sheet(
+        self,
+        frames,
+        keyframe_indices: list[int],
+        question: str,
+        raw_output_path: Path,
+    ) -> BackendResponse:
+        image = make_contact_sheet(frames, keyframe_indices)
+        image_data = _image_to_data_url(image).split(",", 1)[1]
+        endpoint = GEMINI_GENERATE_URL.format(model=self.model)
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": question},
+                        {"inlineData": {"mimeType": "image/jpeg", "data": image_data}},
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0,
+                "responseMimeType": "application/json",
+            },
+        }
+        raw_record: dict[str, Any] = {
+            "backend": self.name,
+            "model": self.model,
+            "endpoint": endpoint,
+            "question": question,
+            "keyframe_indices": keyframe_indices,
+            "request_image_note": "base64 omitted from raw provenance",
+        }
+        t0 = time.perf_counter()
+        try:
+            response = requests.post(
+                endpoint,
+                params={"key": self.api_key},
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=self.timeout_seconds,
+            )
+            elapsed = time.perf_counter() - t0
+            raw_record["status_code"] = response.status_code
+            raw_record["elapsed_seconds"] = elapsed
+            raw_record["response_text"] = response.text
+            response.raise_for_status()
+            data = response.json()
+            raw_record["response_json"] = data
+            answer = _extract_gemini_text(data)
+            return BackendResponse(answer, raw_record, self.name, self.model, elapsed, _estimate_gemini_cost(data, self.model))
+        finally:
+            _write_raw(raw_output_path, raw_record)
+
+
 class MockVisionLanguageBackend:
     name = "mock_vlm"
 
@@ -235,6 +312,38 @@ def _estimate_openai_cost(data: dict[str, Any]) -> float | None:
         return None
     # Model pricing moves quickly; store token counts as raw provenance and avoid
     # a hard-coded claim unless the caller supplies a pricing layer later.
+    return None
+
+
+def _extract_gemini_text(data: dict[str, Any]) -> str:
+    chunks: list[str] = []
+    for candidate in data.get("candidates", []):
+        content = candidate.get("content", {})
+        for part in content.get("parts", []):
+            if part.get("text"):
+                chunks.append(str(part["text"]))
+    return "\n".join(chunks)
+
+
+def _estimate_gemini_cost(data: dict[str, Any], model: str) -> float | None:
+    usage = data.get("usageMetadata")
+    if not isinstance(usage, dict):
+        return None
+    prices = _gemini_model_prices(model)
+    if prices is None:
+        return None
+    input_tokens = int(usage.get("promptTokenCount") or 0)
+    output_tokens = int(usage.get("candidatesTokenCount") or 0)
+    thoughts_tokens = int(usage.get("thoughtsTokenCount") or 0)
+    return input_tokens / 1_000_000 * prices["input"] + (output_tokens + thoughts_tokens) / 1_000_000 * prices["output"]
+
+
+def _gemini_model_prices(model: str) -> dict[str, float] | None:
+    normalized = model.lower()
+    if "flash-lite" in normalized:
+        return {"input": 0.10, "output": 0.40}
+    if "2.5-flash" in normalized or "gemini-2.5-flash" in normalized:
+        return {"input": 0.30, "output": 2.50}
     return None
 
 

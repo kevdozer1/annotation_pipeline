@@ -88,6 +88,29 @@ def test_quality_gate_rejects_ungrounded_object_text(tmp_path: Path) -> None:
     assert any(issue.check == "object_grounding" for issue in report.issues)
 
 
+def test_quality_gate_ignores_function_words_and_visual_attributes_for_grounding(tmp_path: Path) -> None:
+    result = ingest_bridge_v2(source="synthetic", episodes=2, data_root=tmp_path)
+    run_labelers(result["snapshot_id"], data_root=tmp_path, vlm_backend="mock")
+    labels = pd.read_parquet(Path(result["snapshot_path"]) / "labels.parquet")
+    row = labels[labels["labeler_name"] == "subtask_segmenter"].iloc[0]
+    payload_path = Path(row["label_payload_path"])
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    payload["stage_one_observations"] = {
+        "observations": [
+            {
+                "objects": ["cup", "sink"],
+                "summary": "The gripper moves across the sink, beside the empty rack, and settles near a blue cup.",
+            }
+        ]
+    }
+    payload["segments"][0]["subtask_text"] = "move across the empty sink beside the blue cup before release"
+    payload_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    report = evaluate_snapshot_quality(Path(result["snapshot_path"]))
+
+    assert not any(issue.check == "object_grounding" for issue in report.issues)
+
+
 def test_quality_gate_rejects_score_collapse_on_large_enough_snapshot(tmp_path: Path) -> None:
     result = ingest_bridge_v2(source="synthetic", episodes=8, data_root=tmp_path)
     run_labelers(result["snapshot_id"], data_root=tmp_path, vlm_backend="mock")

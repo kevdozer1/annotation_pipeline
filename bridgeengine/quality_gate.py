@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from bridgeengine.scoring import metadata_quality, task_success_quality
+
 
 @dataclass(frozen=True)
 class GateIssue:
@@ -82,7 +84,7 @@ def evaluate_snapshot_quality(snapshot_path: str | Path) -> GateReport:
         if labeler_name == "episode_metadata":
             payload = _read_payload(row.get("label_payload_path"))
             metadata = _parse_json(row.get("metadata_payload_json")) or payload.get("metadata", {})
-            quality = _safe_int(metadata.get("quality"))
+            quality = metadata_quality(metadata)
             if quality is not None:
                 quality_values.append(quality)
             issues.extend(_check_metadata(episode_id, metadata))
@@ -126,7 +128,8 @@ def _check_subtasks(episode_id: str, payload: dict[str, Any]) -> list[GateIssue]
 
 def _check_metadata(episode_id: str, metadata: dict[str, Any]) -> list[GateIssue]:
     issues: list[GateIssue] = []
-    quality = _safe_int(metadata.get("quality"))
+    quality = metadata_quality(metadata)
+    task_quality = task_success_quality(metadata)
     mistake = metadata.get("mistake")
     reason = str(metadata.get("reason", "")).strip()
     lower = reason.lower()
@@ -139,11 +142,12 @@ def _check_metadata(episode_id: str, metadata: dict[str, Any]) -> list[GateIssue
     failure_words = {"fail", "failed", "wrong", "incomplete", "mistake", "incorrect", "drop"}
     says_success = _has_unnegated_word(lower, success_words)
     says_failure = _has_unnegated_word(lower, failure_words)
-    if quality <= 2 and says_success and not says_failure:
+    consistency_quality = task_quality if metadata.get("task_success_quality") is not None else quality
+    if consistency_quality is not None and consistency_quality <= 2 and says_success and not says_failure:
         issues.append(GateIssue(episode_id, "score_reason_consistency", "low quality paired with success reason"))
-    if quality >= 4 and says_failure and not says_success:
+    if consistency_quality is not None and consistency_quality >= 4 and says_failure and not says_success:
         issues.append(GateIssue(episode_id, "score_reason_consistency", "high quality paired with failure reason"))
-    if bool(mistake) and quality >= 5:
+    if consistency_quality is not None and bool(mistake) and consistency_quality >= 5:
         issues.append(GateIssue(episode_id, "score_reason_consistency", "mistake=true with perfect quality"))
     return issues
 
@@ -152,25 +156,47 @@ def _object_like_tokens(text: str) -> list[str]:
     stop = {
         "after",
         "approach",
+        "across",
+        "above",
         "before",
+        "beside",
+        "black",
+        "blue",
         "carry",
+        "clear",
         "destination",
         "edge",
+        "empty",
+        "finish",
         "from",
+        "green",
         "grasp",
+        "gray",
+        "grey",
         "leave",
         "lift",
+        "metal",
         "move",
         "object",
+        "orange",
+        "partial",
         "place",
+        "placing",
+        "purple",
         "pickup",
+        "pink",
         "release",
+        "red",
+        "settle",
+        "silver",
         "sink",
         "task",
         "that",
         "toward",
+        "white",
         "withdraw",
         "with",
+        "yellow",
     }
     tokens = [token.strip(".,:;()[]{}").lower() for token in text.split()]
     return [token for token in tokens if len(token) >= 4 and token not in stop]

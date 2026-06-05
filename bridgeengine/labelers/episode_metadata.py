@@ -14,8 +14,10 @@ from .base import LabelResult, episode_id_from_path, read_metadata, sha256_file,
 from .backends import VisionLanguageBackend, build_vlm_backend
 
 PROMPT_TEMPLATE = """Rate a robot demonstration from evenly-spaced keyframes and the task instruction.
-Return JSON with quality_1_to_5 and mistake_boolean.
-Quality 5 means clean successful completion. Quality 1 means a major failure.
+Return JSON with task_success_quality_1_to_5, curation_quality_1_to_5, and mistake_boolean.
+Task-success quality measures whether the requested task was completed.
+Curation quality measures whether the episode is useful training data: visible approach, grasp/contact, transport, and release/state-change boundaries.
+Quality 5 means clean, unambiguous evidence. Quality 1 means no useful target interaction is visible.
 """
 PILOT_PATH = Path("C:/Users/Kevin/projects/LeWM_testbed/outputs/pilot_subset.json")
 
@@ -58,6 +60,7 @@ class EpisodeMetadataLabeler:
         frames = np.load(frames_path, mmap_mode="r") if frames_path.exists() else None
         observations: dict | list | None = None
         reason = ""
+        metadata_extra: dict[str, object] = {}
         quality_warnings: list[str] = []
         backend_id = None
         backend_model = None
@@ -77,7 +80,7 @@ class EpisodeMetadataLabeler:
                     _metadata_question(task, num_steps, observations),
                     label_output_path,
                 )
-                quality, mistake, reason = _metadata_from_answer(judged.answer)
+                quality, mistake, reason, metadata_extra = _metadata_from_answer(judged.answer)
                 quality_warnings = _metadata_quality_issues(quality, mistake, reason)
                 source = f"{backend.name}_judge"
                 backend_id = backend.name
@@ -102,6 +105,7 @@ class EpisodeMetadataLabeler:
                 "mistake": bool(mistake),
                 "control_mode": "end_effector",
                 "reason": reason,
+                **metadata_extra,
             },
             "judge_source": source,
             "fallback_mode": fallback_mode,
@@ -206,9 +210,9 @@ def _metadata_observation_question(task: str, num_steps: int) -> str:
         "You are observing a robot demonstration before rating it."
         + f"\nTask instruction: {task}"
         + f"\nEpisode length: {num_steps} timesteps."
-        + "\nDescribe physical evidence only: visible objects, whether the robot appears to complete the task, visible grasp/release, and visible mistakes."
+        + "\nDescribe physical evidence only: visible objects, approach, grasp/contact, transport, release/state-change boundaries, whether the requested task appears completed, and visible mistakes."
         + "\nReturn ONLY valid JSON with this shape:"
-        + '\n{"objects":["object","destination"],"completion_evidence":"...", "mistake_evidence":"...", "summary":"..."}'
+        + '\n{"objects":["object","destination"],"boundary_evidence":"...", "completion_evidence":"...", "mistake_evidence":"...", "summary":"..."}'
     )
 
 
@@ -220,23 +224,36 @@ def _metadata_question(task: str, num_steps: int, observations: dict | list) -> 
         + "\nPhysical observations:"
         + "\n" + json.dumps(observations, sort_keys=True)
         + "\nReturn ONLY valid JSON with this shape:"
-        + '\n{"quality":4,"mistake":false,"reason":"specific evidence consistent with the numeric score"}'
-        + "\nUse the full 1-5 range when warranted. Set mistake=true for clear wrong object, failed grasp, wrong destination, or unfinished task."
-        + "\nThe reason must agree with the score: quality 1-2 means failure/major issue, quality 4-5 means mostly successful completion."
+        + '\n{"task_success_quality":3,"curation_quality":4,"mistake":false,"boundary_clarity":"clear","reason":"specific evidence consistent with both scores"}'
+        + "\nUse task_success_quality for final task completion."
+        + "\nUse curation_quality for training usefulness: visible approach/grasp/contact/transport/release or state-change boundaries."
+        + "\nA clip can have task_success_quality=3 but curation_quality=4 if the manipulation boundaries are clear but the final requested placement is ambiguous."
+        + "\nSet mistake=true for clear wrong object, failed grasp, wrong destination, or unfinished requested task, even if curation_quality is high."
     )
 
 
-def _metadata_from_answer(answer: str) -> tuple[int, bool, str]:
+def _metadata_from_answer(answer: str) -> tuple[int, bool, str, dict[str, object]]:
     data = _extract_json(answer)
     if not isinstance(data, dict):
         raise ValueError(f"Moondream metadata answer was not a JSON object: {answer[:500]}")
-    quality = int(data.get("quality", data.get("quality_1_to_5")))
+    task_success_quality = _safe_int(data.get("task_success_quality", data.get("task_success_quality_1_to_5")))
+    curation_quality = _safe_int(data.get("curation_quality", data.get("curation_quality_1_to_5")))
+    quality = curation_quality if curation_quality is not None else _safe_int(data.get("quality", data.get("quality_1_to_5")))
+    if quality is None:
+        raise ValueError(f"Metadata answer had no quality score: {answer[:500]}")
     quality = max(1, min(5, quality))
     mistake = data.get("mistake", data.get("mistake_boolean"))
     if isinstance(mistake, str):
         mistake = mistake.strip().lower() in {"true", "yes", "1"}
     reason = str(data.get("reason", "")).strip()
-    return quality, bool(mistake), reason
+    extra: dict[str, object] = {}
+    if task_success_quality is not None:
+        extra["task_success_quality"] = max(1, min(5, int(task_success_quality)))
+    if curation_quality is not None:
+        extra["curation_quality"] = max(1, min(5, int(curation_quality)))
+    if data.get("boundary_clarity"):
+        extra["boundary_clarity"] = str(data["boundary_clarity"]).strip().lower()
+    return quality, bool(mistake), reason, extra
 
 
 def _metadata_quality_issues(quality: int, mistake: bool, reason: str) -> list[str]:
@@ -268,6 +285,15 @@ def _has_unnegated_word(text: str, target_words: set[str]) -> bool:
             continue
         return True
     return False
+
+
+def _safe_int(value) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _extract_json(text: str):

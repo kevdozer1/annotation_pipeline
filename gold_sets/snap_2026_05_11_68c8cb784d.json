@@ -1,0 +1,1437 @@
+{
+  "episodes": [
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The robot grasps the can, moves it over the metal pot, and releases it so the can is clearly inside the pot in the final frame, with no visible wrong object, wrong destination, or failed placement.",
+          "speed": 28
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_003087",
+            "frame_idx": 14,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\00.jpg",
+            "subtask_text": "move to the orange can and grasp it from the counter"
+          },
+          {
+            "episode_id": "episode_003087",
+            "frame_idx": 23,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\01.jpg",
+            "subtask_text": "carry the orange can over the metal pot"
+          },
+          {
+            "episode_id": "episode_003087",
+            "frame_idx": 27,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_003087\\02.jpg",
+            "subtask_text": "lower and release the orange can into the metal pot"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 14,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move to the orange can and grasp it from the counter"
+          },
+          {
+            "end_step": 23,
+            "segment_idx": 1,
+            "start_step": 15,
+            "subtask_text": "carry the orange can over the metal pot"
+          },
+          {
+            "end_step": 27,
+            "segment_idx": 2,
+            "start_step": 24,
+            "subtask_text": "lower and release the orange can into the metal pot"
+          }
+        ]
+      },
+      "episode_id": "episode_003087",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 28,
+      "review_notes": "",
+      "task": "put can in pot"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The robot grasps the blue bowl, moves it over the blue plate within the cardboard-fenced area, and releases it so the bowl is resting on the plate at the end with no visible drop, collision, or wrong-object error.",
+          "speed": 29
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_004196",
+            "frame_idx": 9,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_004196\\00.jpg",
+            "subtask_text": "move gripper to the blue bowl inside the cardboard fence"
+          },
+          {
+            "episode_id": "episode_004196",
+            "frame_idx": 21,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_004196\\01.jpg",
+            "subtask_text": "grasp and move the blue bowl onto the blue plate"
+          },
+          {
+            "episode_id": "episode_004196",
+            "frame_idx": 28,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_004196\\02.jpg",
+            "subtask_text": "release the blue bowl on the plate and withdraw gripper"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 9,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move gripper to the blue bowl inside the cardboard fence"
+          },
+          {
+            "end_step": 21,
+            "segment_idx": 1,
+            "start_step": 10,
+            "subtask_text": "grasp and move the blue bowl onto the blue plate"
+          },
+          {
+            "end_step": 28,
+            "segment_idx": 2,
+            "start_step": 22,
+            "subtask_text": "release the blue bowl on the plate and withdraw gripper"
+          }
+        ]
+      },
+      "episode_id": "episode_004196",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 29,
+      "review_notes": "",
+      "task": "put bowl on plate cardboard fence"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 4,
+          "reason": "The robot grasps the yellow corn and moves it to the metal pot located in the sink, with the final frames showing the corn inside or directly over the pot. The placement appears successful, though the release is not fully clear, so it is not a perfect score.",
+          "speed": 19
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_014392",
+            "frame_idx": 6,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_014392\\00.jpg",
+            "subtask_text": "move to and grasp the corn near the sink edge"
+          },
+          {
+            "episode_id": "episode_014392",
+            "frame_idx": 15,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_014392\\01.jpg",
+            "subtask_text": "carry the corn over the sink and lower it into the pot"
+          },
+          {
+            "episode_id": "episode_014392",
+            "frame_idx": 18,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_014392\\02.jpg",
+            "subtask_text": "release the corn inside the pot in the sink"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 6,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move to and grasp the corn near the sink edge"
+          },
+          {
+            "end_step": 15,
+            "segment_idx": 1,
+            "start_step": 7,
+            "subtask_text": "carry the corn over the sink and lower it into the pot"
+          },
+          {
+            "end_step": 18,
+            "segment_idx": 2,
+            "start_step": 16,
+            "subtask_text": "release the corn inside the pot in the sink"
+          }
+        ]
+      },
+      "episode_id": "episode_014392",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 19,
+      "review_notes": "",
+      "task": "put corn in pot which is in sink"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 4,
+          "reason": "The corn starts on the counter and is visible inside the metal pot located in the sink by the final frame, with the gripper positioned above it. The task is mostly successfully completed with no clear wrong object or wrong destination, though the actual release is not clearly shown.",
+          "speed": 17
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_017546",
+            "frame_idx": 5,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_017546\\00.jpg",
+            "subtask_text": "corn on counter near pot in sink before pickup"
+          },
+          {
+            "episode_id": "episode_017546",
+            "frame_idx": 13,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_017546\\01.jpg",
+            "subtask_text": "move gripper to grasp corn on counter"
+          },
+          {
+            "episode_id": "episode_017546",
+            "frame_idx": 16,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_017546\\02.jpg",
+            "subtask_text": "carry and release corn into pot in sink"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 5,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "corn on counter near pot in sink before pickup"
+          },
+          {
+            "end_step": 13,
+            "segment_idx": 1,
+            "start_step": 6,
+            "subtask_text": "move gripper to grasp corn on counter"
+          },
+          {
+            "end_step": 16,
+            "segment_idx": 2,
+            "start_step": 14,
+            "subtask_text": "carry and release corn into pot in sink"
+          }
+        ]
+      },
+      "episode_id": "episode_017546",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 17,
+      "review_notes": "",
+      "task": "put corn in pot which is in sink"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The robot grasps the corn cob, moves it over the red plate, and by the final frame the corn appears to be on the plate with no visible drop, wrong object, or wrong destination.",
+          "speed": 28
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_023723",
+            "frame_idx": 15,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_023723\\00.jpg",
+            "subtask_text": "grasp and lift the yellow corn cob from the front drawer area"
+          },
+          {
+            "episode_id": "episode_023723",
+            "frame_idx": 25,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_023723\\01.jpg",
+            "subtask_text": "carry the yellow corn cob over to the red plate"
+          },
+          {
+            "episode_id": "episode_023723",
+            "frame_idx": 27,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_023723\\02.jpg",
+            "subtask_text": "release the yellow corn cob onto the red plate"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 15,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "grasp and lift the yellow corn cob from the front drawer area"
+          },
+          {
+            "end_step": 25,
+            "segment_idx": 1,
+            "start_step": 16,
+            "subtask_text": "carry the yellow corn cob over to the red plate"
+          },
+          {
+            "end_step": 27,
+            "segment_idx": 2,
+            "start_step": 26,
+            "subtask_text": "release the yellow corn cob onto the red plate"
+          }
+        ]
+      },
+      "episode_id": "episode_023723",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 28,
+      "review_notes": "",
+      "task": "put corn on plate"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 4,
+          "reason": "The metal pot/pan is picked up from the sink and moved into the drying rack by the final frame. The task appears completed, though the gripper remains close to the pot so the release is not fully clear.",
+          "speed": 23
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_024504",
+            "frame_idx": 2,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024504\\00.jpg",
+            "subtask_text": "position gripper on the metal pot in the sink"
+          },
+          {
+            "episode_id": "episode_024504",
+            "frame_idx": 17,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024504\\01.jpg",
+            "subtask_text": "lift and carry the metal pot from the sink toward the drying rack"
+          },
+          {
+            "episode_id": "episode_024504",
+            "frame_idx": 22,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024504\\02.jpg",
+            "subtask_text": "place the metal pot into the drying rack"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 2,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "position gripper on the metal pot in the sink"
+          },
+          {
+            "end_step": 17,
+            "segment_idx": 1,
+            "start_step": 3,
+            "subtask_text": "lift and carry the metal pot from the sink toward the drying rack"
+          },
+          {
+            "end_step": 22,
+            "segment_idx": 2,
+            "start_step": 18,
+            "subtask_text": "place the metal pot into the drying rack"
+          }
+        ]
+      },
+      "episode_id": "episode_024504",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 23,
+      "review_notes": "",
+      "task": "put pot or pan from sink into drying rack"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": true,
+          "quality": 3,
+          "reason": "The robot grasps the pot/pan in the sink and moves it to the drying rack area, leaving the sink empty, but the final frame shows the object still held above the rack rather than released and resting in it, so the task is unfinished.",
+          "speed": 23
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_024911",
+            "frame_idx": 7,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024911\\00.jpg",
+            "subtask_text": "move gripper to grasp the metal pot in the sink"
+          },
+          {
+            "episode_id": "episode_024911",
+            "frame_idx": 21,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024911\\01.jpg",
+            "subtask_text": "lift and carry the metal pot from the sink toward the drying rack"
+          },
+          {
+            "episode_id": "episode_024911",
+            "frame_idx": 22,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_024911\\02.jpg",
+            "subtask_text": "position the metal pot over the yellow drying rack"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 7,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move gripper to grasp the metal pot in the sink"
+          },
+          {
+            "end_step": 21,
+            "segment_idx": 1,
+            "start_step": 8,
+            "subtask_text": "lift and carry the metal pot from the sink toward the drying rack"
+          },
+          {
+            "end_step": 22,
+            "segment_idx": 2,
+            "start_step": 22,
+            "subtask_text": "position the metal pot over the yellow drying rack"
+          }
+        ]
+      },
+      "episode_id": "episode_024911",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 23,
+      "review_notes": "",
+      "task": "put pot or pan from sink into drying rack"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The robot grasps the blue bowl, lifts it from the counter, moves it over the beige plate, and releases it so that the bowl is resting centered on the plate in the final frame.",
+          "speed": 27
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_032806",
+            "frame_idx": 7,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_032806\\00.jpg",
+            "subtask_text": "move the gripper to the blue bowl"
+          },
+          {
+            "episode_id": "episode_032806",
+            "frame_idx": 19,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_032806\\01.jpg",
+            "subtask_text": "lift the blue bowl and carry it onto the beige plate"
+          },
+          {
+            "episode_id": "episode_032806",
+            "frame_idx": 26,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_032806\\02.jpg",
+            "subtask_text": "leave the blue bowl on the beige plate and withdraw"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 7,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move the gripper to the blue bowl"
+          },
+          {
+            "end_step": 19,
+            "segment_idx": 1,
+            "start_step": 8,
+            "subtask_text": "lift the blue bowl and carry it onto the beige plate"
+          },
+          {
+            "end_step": 26,
+            "segment_idx": 2,
+            "start_step": 20,
+            "subtask_text": "leave the blue bowl on the beige plate and withdraw"
+          }
+        ]
+      },
+      "episode_id": "episode_032806",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 27,
+      "review_notes": "",
+      "task": "put bowl on plate"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": true,
+          "quality": 3,
+          "reason": "The robot grasps the red bottle and moves it toward/over the sink, but the final frame shows it still held by the gripper and not clearly released or resting in the sink, so the task is unfinished.",
+          "speed": 28
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_034676",
+            "frame_idx": 13,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_034676\\00.jpg",
+            "subtask_text": "move gripper toward the red bottle on the counter"
+          },
+          {
+            "episode_id": "episode_034676",
+            "frame_idx": 26,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_034676\\01.jpg",
+            "subtask_text": "grasp the red bottle and carry it toward the sink"
+          },
+          {
+            "episode_id": "episode_034676",
+            "frame_idx": 27,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_034676\\02.jpg",
+            "subtask_text": "position the red bottle upright in the sink area"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 13,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move gripper toward the red bottle on the counter"
+          },
+          {
+            "end_step": 26,
+            "segment_idx": 1,
+            "start_step": 14,
+            "subtask_text": "grasp the red bottle and carry it toward the sink"
+          },
+          {
+            "end_step": 27,
+            "segment_idx": 2,
+            "start_step": 27,
+            "subtask_text": "position the red bottle upright in the sink area"
+          }
+        ]
+      },
+      "episode_id": "episode_034676",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 28,
+      "review_notes": "",
+      "task": "put red bottle in sink"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": true,
+          "quality": 1,
+          "reason": "The eggplant is not visibly placed between the two right burners. The robot instead appears to manipulate a white slotted tray and blue cloth, and the final frame shows no clear eggplant at the intended burner location, indicating a failed/unfinished task.",
+          "speed": 39
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_035339",
+            "frame_idx": 6,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\00.jpg",
+            "subtask_text": "move gripper to the white basket with blue cloth near the stovetop"
+          },
+          {
+            "episode_id": "episode_035339",
+            "frame_idx": 26,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\01.jpg",
+            "subtask_text": "grasp and carry the white basket with blue cloth toward the right burner area"
+          },
+          {
+            "episode_id": "episode_035339",
+            "frame_idx": 38,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_035339\\02.jpg",
+            "subtask_text": "place and release the white basket with blue cloth beside the green cloth near the burners"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 6,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move gripper to the white basket with blue cloth near the stovetop"
+          },
+          {
+            "end_step": 26,
+            "segment_idx": 1,
+            "start_step": 7,
+            "subtask_text": "grasp and carry the white basket with blue cloth toward the right burner area"
+          },
+          {
+            "end_step": 38,
+            "segment_idx": 2,
+            "start_step": 27,
+            "subtask_text": "place and release the white basket with blue cloth beside the green cloth near the burners"
+          }
+        ]
+      },
+      "episode_id": "episode_035339",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 39,
+      "review_notes": "",
+      "task": "take the eggplant and put it between the two right burners"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": true,
+          "quality": 3,
+          "reason": "The robot grasped the red bottle and moved it into the sink basin area, but the final frame still shows the gripper holding the bottle with no clear release, so the placement task appears unfinished.",
+          "speed": 28
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_036031",
+            "frame_idx": 13,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_036031\\00.jpg",
+            "subtask_text": "grasp and lift the red bottle from the counter"
+          },
+          {
+            "episode_id": "episode_036031",
+            "frame_idx": 25,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_036031\\01.jpg",
+            "subtask_text": "carry the red bottle over the sink basin"
+          },
+          {
+            "episode_id": "episode_036031",
+            "frame_idx": 27,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_036031\\02.jpg",
+            "subtask_text": "lower the red bottle into the sink"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 13,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "grasp and lift the red bottle from the counter"
+          },
+          {
+            "end_step": 25,
+            "segment_idx": 1,
+            "start_step": 14,
+            "subtask_text": "carry the red bottle over the sink basin"
+          },
+          {
+            "end_step": 27,
+            "segment_idx": 2,
+            "start_step": 26,
+            "subtask_text": "lower the red bottle into the sink"
+          }
+        ]
+      },
+      "episode_id": "episode_036031",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 28,
+      "review_notes": "",
+      "task": "put red bottle in sink"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The gripper grasps the light blue bowl, lifts and moves it to the light blue/white plate, releases it, and the final frame shows the bowl resting on the plate with the gripper open above it.",
+          "speed": 29
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_044796",
+            "frame_idx": 8,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_044796\\00.jpg",
+            "subtask_text": "move to and grasp the blue bowl"
+          },
+          {
+            "episode_id": "episode_044796",
+            "frame_idx": 20,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_044796\\01.jpg",
+            "subtask_text": "lift and carry the blue bowl toward the blue plate"
+          },
+          {
+            "episode_id": "episode_044796",
+            "frame_idx": 28,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_044796\\02.jpg",
+            "subtask_text": "place and release the blue bowl on the blue plate"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 8,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move to and grasp the blue bowl"
+          },
+          {
+            "end_step": 20,
+            "segment_idx": 1,
+            "start_step": 9,
+            "subtask_text": "lift and carry the blue bowl toward the blue plate"
+          },
+          {
+            "end_step": 28,
+            "segment_idx": 2,
+            "start_step": 21,
+            "subtask_text": "place and release the blue bowl on the blue plate"
+          }
+        ]
+      },
+      "episode_id": "episode_044796",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 29,
+      "review_notes": "",
+      "task": "put bowl on plate"
+    },
+    {
+      "auto": {
+        "metadata": {
+          "control_mode": "end_effector",
+          "mistake": false,
+          "quality": 5,
+          "reason": "The turquoise cup starts on the back counter/drying area and is visible in the sink basin by the final frame, with no clear disturbance of other objects or wrong destination.",
+          "speed": 16
+        },
+        "subgoals": [
+          {
+            "episode_id": "episode_052920",
+            "frame_idx": 7,
+            "segment_idx": 0,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\00.jpg",
+            "subtask_text": "move toward the teal cup at the rear sink edge"
+          },
+          {
+            "episode_id": "episode_052920",
+            "frame_idx": 12,
+            "segment_idx": 1,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\01.jpg",
+            "subtask_text": "grasp the teal cup at the rear sink edge"
+          },
+          {
+            "episode_id": "episode_052920",
+            "frame_idx": 15,
+            "segment_idx": 2,
+            "source": "actual_end_of_segment_frame",
+            "subgoal_image_path": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\bridgeengine_data\\snapshots\\snap_2026_05_11_68c8cb784d\\subgoals\\episode_052920\\02.jpg",
+            "subtask_text": "carry and release the teal cup into the sink basin"
+          }
+        ],
+        "subtasks": [
+          {
+            "end_step": 7,
+            "segment_idx": 0,
+            "start_step": 0,
+            "subtask_text": "move toward the teal cup at the rear sink edge"
+          },
+          {
+            "end_step": 12,
+            "segment_idx": 1,
+            "start_step": 8,
+            "subtask_text": "grasp the teal cup at the rear sink edge"
+          },
+          {
+            "end_step": 15,
+            "segment_idx": 2,
+            "start_step": 13,
+            "subtask_text": "carry and release the teal cup into the sink basin"
+          }
+        ]
+      },
+      "episode_id": "episode_052920",
+      "gold": {
+        "metadata": {
+          "accept_auto": null,
+          "control_mode": "end_effector",
+          "mistake": null,
+          "quality": null,
+          "reason": null
+        },
+        "subgoals": [
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 0
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 1
+          },
+          {
+            "accept_auto": null,
+            "frame_idx": null,
+            "segment_idx": 2
+          }
+        ],
+        "subtasks": [
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 0,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 1,
+            "start_step": null,
+            "subtask_text": null
+          },
+          {
+            "accept_auto": null,
+            "end_step": null,
+            "segment_idx": 2,
+            "start_step": null,
+            "subtask_text": null
+          }
+        ]
+      },
+      "num_steps": 16,
+      "review_notes": "",
+      "task": "put cup from counter or drying rack into sink"
+    }
+  ],
+  "instructions": "Fill the gold fields by confirming or correcting the auto labels. Leave auto fields unchanged; BridgeEngine uses them for reliability comparisons.",
+  "schema_version": "gold_set_v1",
+  "snapshot_id": "snap_2026_05_11_68c8cb784d"
+}

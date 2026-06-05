@@ -23,9 +23,9 @@ Task: {task}
 class SubtaskSegmenter:
     """pi0.7-style subtask instruction labeler.
 
-    Live Moondream is the production path for demo labels. The deterministic
-    adapter is kept only for CI and downstream plumbing tests, and its
-    provenance is marked so benchmark runs can reject it.
+    Live VLM backends are the production path for demo labels. The
+    deterministic adapter is kept only for CI and downstream plumbing tests,
+    and its provenance is marked so benchmark runs can reject it.
     """
 
     name = "subtask_segmenter"
@@ -407,25 +407,51 @@ def _object_like_tokens(text: str) -> list[str]:
     stop = {
         "after",
         "approach",
+        "across",
+        "above",
         "and",
         "at",
         "before",
+        "beside",
+        "black",
+        "blue",
         "carry",
+        "clear",
         "destination",
         "edge",
+        "empty",
+        "finish",
+        "from",
+        "green",
         "grasp",
+        "gray",
+        "grey",
         "leave",
         "lift",
+        "metal",
         "move",
         "object",
+        "orange",
+        "partial",
         "place",
+        "placing",
+        "pink",
         "pickup",
+        "purple",
+        "red",
         "release",
+        "settle",
+        "silver",
+        "sink",
+        "task",
+        "that",
         "the",
         "to",
         "toward",
+        "white",
         "withdraw",
         "with",
+        "yellow",
     }
     tokens = [t.strip(".,:;()[]{}").lower() for t in text.split()]
     return [t for t in tokens if len(t) >= 4 and t not in stop]

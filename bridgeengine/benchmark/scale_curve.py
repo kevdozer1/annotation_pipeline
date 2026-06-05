@@ -11,6 +11,7 @@ import pandas as pd
 
 from bridgeengine.benchmark.run_grid import run_grid
 from bridgeengine.paths import data_root as resolve_data_root
+from bridgeengine.scoring import metadata_quality
 
 
 DEFAULT_SIZES = (50, 200, 800)
@@ -204,8 +205,9 @@ def _quality_by_episode(snapshot_path: Path) -> dict[str, int]:
             data = json.loads(payload)
         except (TypeError, json.JSONDecodeError):
             continue
-        if data.get("quality") is not None:
-            result[str(row["episode_id"])] = int(data["quality"])
+        quality = metadata_quality(data)
+        if quality is not None:
+            result[str(row["episode_id"])] = int(quality)
     return result
 
 

@@ -1,0 +1,121 @@
+{
+  "episode_count": 13,
+  "estimated_cost_usd_per_episode": null,
+  "estimated_cost_usd_total": null,
+  "gold_file": "C:\\Users\\Kevin\\projects\\annotation_pipeline\\gold_sets\\snap_2026_05_11_68c8cb784d.json",
+  "labeling_wall_clock_seconds_per_episode": 32.53705561538462,
+  "labeling_wall_clock_seconds_total": 422.981723,
+  "parallelism_note": "Episodes are labeled independently; labeling cost is linear and shardable across episodes.",
+  "per_episode": [
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_003087",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 32.277183
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_004196",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 34.39619
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_014392",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 29.274119
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_017546",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 43.854394
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_023723",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 33.836182
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_024504",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 23.553682
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_024911",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 32.446266
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_032806",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 24.284972
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_034676",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 35.940966
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_035339",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 39.092548
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_036031",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 29.34314
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_044796",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 25.141725
+    },
+    {
+      "boundary_iou_mean": null,
+      "episode_id": "episode_052920",
+      "estimated_cost_usd_labeling": null,
+      "quality_exact": null,
+      "quality_within_one": null,
+      "wall_clock_seconds_labeling": 39.540354
+    }
+  ],
+  "quality_exact_agreement": null,
+  "quality_within_one_agreement": null,
+  "reviewed_episode_count": 0,
+  "snapshot_id": "snap_2026_05_11_68c8cb784d",
+  "subgoal_selection_agreement": null,
+  "subtask_boundary_temporal_iou_mean": null
+}

@@ -8,12 +8,18 @@ from typing import Any
 import pandas as pd
 
 from bridgeengine.paths import data_root as resolve_data_root
+from bridgeengine.scoring import metadata_quality
 
 
 GPT55_INPUT_PER_M = 5.00
 GPT55_CACHED_INPUT_PER_M = 0.50
 GPT55_OUTPUT_PER_M = 30.00
 GPT55_PRICING_SOURCE = "https://developers.openai.com/api/docs/models/gpt-5.5"
+GEMINI_FLASH_INPUT_PER_M = 0.30
+GEMINI_FLASH_OUTPUT_PER_M = 2.50
+GEMINI_FLASH_LITE_INPUT_PER_M = 0.10
+GEMINI_FLASH_LITE_OUTPUT_PER_M = 0.40
+GEMINI_PRICING_SOURCE = "https://ai.google.dev/gemini-api/docs/pricing"
 
 
 def summarize_cost(
@@ -31,7 +37,8 @@ def summarize_cost(
     token_totals = _raw_token_totals(snapshot_path / "raw_vlm_outputs")
     episode_count = int(len(episodes))
     wall_clock = float(sum(float(v) for v in manifest.get("labeler_runtime_seconds", {}).values()))
-    total_cost = _estimate_gpt55_cost(token_totals)
+    pricing = _pricing_for_totals(token_totals)
+    total_cost = _estimate_cost(token_totals, pricing)
     per_episode_cost = total_cost / episode_count if episode_count else 0.0
     per_episode_seconds = wall_clock / episode_count if episode_count else 0.0
     report = {
@@ -40,11 +47,12 @@ def summarize_cost(
         "label_rows": int(len(labels)),
         "token_totals": token_totals,
         "pricing": {
-            "model": "gpt-5.5",
-            "input_usd_per_1m": GPT55_INPUT_PER_M,
-            "cached_input_usd_per_1m": GPT55_CACHED_INPUT_PER_M,
-            "output_usd_per_1m": GPT55_OUTPUT_PER_M,
-            "source": GPT55_PRICING_SOURCE,
+            "model": pricing["model"],
+            "backend": pricing["backend"],
+            "input_usd_per_1m": pricing["input_usd_per_1m"],
+            "cached_input_usd_per_1m": pricing.get("cached_input_usd_per_1m"),
+            "output_usd_per_1m": pricing["output_usd_per_1m"],
+            "source": pricing["source"],
         },
         "estimated_total_cost_usd": round(total_cost, 6),
         "estimated_cost_per_episode_usd": round(per_episode_cost, 6),
@@ -83,6 +91,7 @@ def format_cost_report(report: dict[str, Any]) -> str:
         f"- cached input: {report['token_totals']['cached_input_tokens']}",
         f"- output: {report['token_totals']['output_tokens']}",
         f"- total: {report['token_totals']['total_tokens']}",
+        f"Backend/model: {report['pricing']['backend']} / {report['pricing']['model']}",
         "Projected serial labeling:",
     ]
     for row in report["projections"]:
@@ -95,7 +104,7 @@ def format_cost_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _raw_token_totals(raw_root: Path) -> dict[str, int]:
+def _raw_token_totals(raw_root: Path) -> dict[str, Any]:
     totals = {
         "request_count": 0,
         "input_tokens": 0,
@@ -109,31 +118,87 @@ def _raw_token_totals(raw_root: Path) -> dict[str, int]:
     for path in raw_root.glob("*/*.json"):
         data = _read_json(path)
         response = data.get("response_json", {})
+        backend = str(data.get("backend", ""))
+        model = str(data.get("model", ""))
+        if backend:
+            totals.setdefault("backends", {})
+            totals["backends"][backend] = int(totals["backends"].get(backend, 0)) + 1
+        if model:
+            totals.setdefault("models", {})
+            totals["models"][model] = int(totals["models"].get(model, 0)) + 1
         usage = response.get("usage", {}) if isinstance(response, dict) else {}
-        if not usage:
+        gemini_usage = response.get("usageMetadata", {}) if isinstance(response, dict) else {}
+        if usage:
+            totals["request_count"] += 1
+            input_tokens = int(usage.get("input_tokens") or 0)
+            output_tokens = int(usage.get("output_tokens") or 0)
+            cached = int((usage.get("input_tokens_details") or {}).get("cached_tokens") or 0)
+            reasoning = int((usage.get("output_tokens_details") or {}).get("reasoning_tokens") or 0)
+            totals["input_tokens"] += input_tokens
+            totals["cached_input_tokens"] += cached
+            totals["output_tokens"] += output_tokens
+            totals["reasoning_tokens"] += reasoning
+            totals["total_tokens"] += int(usage.get("total_tokens") or input_tokens + output_tokens)
+            continue
+        if not gemini_usage:
             continue
         totals["request_count"] += 1
-        input_tokens = int(usage.get("input_tokens") or 0)
-        output_tokens = int(usage.get("output_tokens") or 0)
-        cached = int((usage.get("input_tokens_details") or {}).get("cached_tokens") or 0)
-        reasoning = int((usage.get("output_tokens_details") or {}).get("reasoning_tokens") or 0)
+        input_tokens = int(gemini_usage.get("promptTokenCount") or 0)
+        output_tokens = int(gemini_usage.get("candidatesTokenCount") or 0)
+        reasoning = int(gemini_usage.get("thoughtsTokenCount") or 0)
         totals["input_tokens"] += input_tokens
-        totals["cached_input_tokens"] += cached
         totals["output_tokens"] += output_tokens
         totals["reasoning_tokens"] += reasoning
-        totals["total_tokens"] += int(usage.get("total_tokens") or input_tokens + output_tokens)
+        totals["total_tokens"] += int(gemini_usage.get("totalTokenCount") or input_tokens + output_tokens + reasoning)
     return totals
 
 
-def _estimate_gpt55_cost(totals: dict[str, int]) -> float:
+def _pricing_for_totals(totals: dict[str, Any]) -> dict[str, Any]:
+    models = totals.get("models", {}) if isinstance(totals.get("models"), dict) else {}
+    backends = totals.get("backends", {}) if isinstance(totals.get("backends"), dict) else {}
+    model = max(models, key=models.get) if models else "unknown"
+    backend = max(backends, key=backends.get) if backends else "unknown"
+    lower_model = str(model).lower()
+    if "gemini" in lower_model or "gemini" in str(backend).lower():
+        if "flash-lite" in lower_model:
+            return {
+                "backend": backend,
+                "model": model,
+                "input_usd_per_1m": GEMINI_FLASH_LITE_INPUT_PER_M,
+                "output_usd_per_1m": GEMINI_FLASH_LITE_OUTPUT_PER_M,
+                "bill_reasoning_separately": True,
+                "source": GEMINI_PRICING_SOURCE,
+            }
+        return {
+            "backend": backend,
+            "model": model,
+            "input_usd_per_1m": GEMINI_FLASH_INPUT_PER_M,
+            "output_usd_per_1m": GEMINI_FLASH_OUTPUT_PER_M,
+            "bill_reasoning_separately": True,
+            "source": GEMINI_PRICING_SOURCE,
+        }
+    return {
+        "backend": backend,
+        "model": model or "gpt-5.5",
+        "input_usd_per_1m": GPT55_INPUT_PER_M,
+        "cached_input_usd_per_1m": GPT55_CACHED_INPUT_PER_M,
+        "output_usd_per_1m": GPT55_OUTPUT_PER_M,
+        "bill_reasoning_separately": False,
+        "source": GPT55_PRICING_SOURCE,
+    }
+
+
+def _estimate_cost(totals: dict[str, Any], pricing: dict[str, Any]) -> float:
     cached = int(totals.get("cached_input_tokens") or 0)
     input_tokens = int(totals.get("input_tokens") or 0)
     billable_input = max(0, input_tokens - cached)
     output_tokens = int(totals.get("output_tokens") or 0)
+    reasoning_tokens = int(totals.get("reasoning_tokens") or 0) if pricing.get("bill_reasoning_separately") else 0
+    cached_price = pricing.get("cached_input_usd_per_1m")
     return (
-        billable_input / 1_000_000 * GPT55_INPUT_PER_M
-        + cached / 1_000_000 * GPT55_CACHED_INPUT_PER_M
-        + output_tokens / 1_000_000 * GPT55_OUTPUT_PER_M
+        billable_input / 1_000_000 * float(pricing["input_usd_per_1m"])
+        + cached / 1_000_000 * float(cached_price if cached_price is not None else pricing["input_usd_per_1m"])
+        + (output_tokens + reasoning_tokens) / 1_000_000 * float(pricing["output_usd_per_1m"])
     )
 
 
@@ -146,8 +211,9 @@ def _quality_distribution(labels: pd.DataFrame) -> dict[int, int]:
             data = json.loads(value)
         except (TypeError, json.JSONDecodeError):
             continue
-        if data.get("quality") is not None:
-            values.append(int(data["quality"]))
+        quality = metadata_quality(data)
+        if quality is not None:
+            values.append(int(quality))
     if not values:
         return {}
     return {int(k): int(v) for k, v in pd.Series(values, dtype="int64").value_counts().sort_index().to_dict().items()}

@@ -13,6 +13,7 @@ from bridgeengine.labelers import EpisodeMetadataLabeler, SubgoalImageLabeler, S
 from bridgeengine.labelers.base import LabelResult
 from bridgeengine.labelers.perceptive import DepthLabeler, MaskLabeler, TrackLabeler
 from bridgeengine.paths import data_root as resolve_data_root
+from bridgeengine.scoring import rescore_snapshot
 
 
 def run_labelers(
@@ -46,6 +47,7 @@ def run_labelers(
 
     labels = pd.DataFrame(rows, columns=LABEL_COLUMNS).sort_values(["episode_id", "labeler_name", "segment_idx"]).reset_index(drop=True)
     labels.to_parquet(snapshot_path / "labels.parquet", index=False)
+    rescore_snapshot(snapshot_id, data_root=root)
 
     manifest = json.loads((snapshot_path / "manifest.json").read_text(encoding="utf-8"))
     write_manifest(

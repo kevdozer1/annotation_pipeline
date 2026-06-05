@@ -14,7 +14,7 @@ def main() -> None:
     parser.add_argument("--labeler", action="append", dest="labelers", default=None)
     parser.add_argument("--perceptive", action="store_true", help="Run comparison perception labelers instead of rich-prompt labelers")
     parser.add_argument("--allow-fallback", action="store_true", help="Allow scaffolding-only deterministic fallback labels when the selected VLM is unavailable")
-    parser.add_argument("--vlm-backend", default=None, help="VLM backend for semantic labelers: openai, moondream, or mock")
+    parser.add_argument("--vlm-backend", default=None, help="VLM backend for semantic labelers: openai, gemini, moondream, or mock")
     parser.add_argument("--vlm-model", default=None, help="Optional model name for the selected VLM backend")
     args = parser.parse_args()
     fn = run_perceptive_labelers if args.perceptive else run_labelers
