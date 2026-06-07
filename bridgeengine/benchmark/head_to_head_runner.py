@@ -7,14 +7,22 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import cv2
 import h5py
+import numpy as np
 import pandas as pd
 import yaml
 
 
 DEFAULT_LOCAL_ROOT = Path("D:/bridgedata_v2_subset")
+DEFAULT_EPISODES_ROOT = DEFAULT_LOCAL_ROOT / "episodes"
 DEFAULT_SOURCE_H5 = DEFAULT_LOCAL_ROOT / "datasets" / "bridgedata_v2_100ep.h5"
 DEFAULT_MANIFEST = DEFAULT_LOCAL_ROOT / "manifest_100.json"
+
+# Target spatial resolution for the LeWM world model (matches the original
+# LeWM_testbed/scripts/export_bridgedata_100ep_h5.py export pipeline).
+TARGET_SIZE = 224
+DEFAULT_N_POINTS = 400
 DEFAULT_PLAN_DIR = Path("head_to_head_results/preregistered_100")
 DEFAULT_LEWM_ROOT = Path("C:/Users/Kevin/projects/LeWM_testbed")
 DEFAULT_PRETRAINED = (
@@ -100,8 +108,14 @@ def prepare_handoff(
     batch_size: int = 16,
     lr: float = 5e-5,
     dry_run: bool = False,
+    episodes_root: str | Path = DEFAULT_EPISODES_ROOT,
 ) -> dict[str, Any]:
-    out = Path(output_dir)
+    # Resolve every path to an absolute location so that downstream training and
+    # evaluation work regardless of the process working directory.
+    out = Path(output_dir).resolve()
+    plan_dir = Path(plan_dir).resolve()
+    lewm_root = Path(lewm_root).resolve()
+    episodes_root = Path(episodes_root).resolve()
     datasets_dir = out / "datasets"
     configs_dir = out / "configs"
     logs_dir = out / "logs"
@@ -112,21 +126,32 @@ def prepare_handoff(
     manifest = _read_manifest(manifest_path)
     manifest_ids = [_episode_id(row) for row in manifest]
     split_payloads = _load_split_payloads(plan_dir, sizes)
+    # The consolidated source HDF5 is intentionally NOT read: it stores pixels and
+    # depth with a Blosc2 plugin codec that does not resolve in every interpreter,
+    # which is what produced the original "can't open directory" OSError. Instead we
+    # assemble each split HDF5 directly from the per-episode .npy arrays into a
+    # self-contained, gzip-compressed file with no external/plugin links.
     source_h5 = Path(source_h5)
-    if not source_h5.exists():
-        raise FileNotFoundError(f"Source HDF5 not found: {source_h5}")
+    if not episodes_root.is_dir():
+        raise FileNotFoundError(f"Per-episode arrays directory not found: {episodes_root}")
 
     h5_exports = []
     config_paths = []
     commands: list[dict[str, Any]] = []
+    sanity_summary: list[dict[str, Any]] = []
     for size, split in split_payloads.items():
         train_name = f"be_h2h_scale_{size}_train"
         heldout_name = f"be_h2h_scale_{size}_heldout"
         train_h5 = datasets_dir / f"{train_name}.h5"
         heldout_h5 = datasets_dir / f"{heldout_name}.h5"
         if not dry_run:
-            export_h5_subset(source_h5, manifest_ids, split["train_episode_ids"], train_name, train_h5)
-            export_h5_subset(source_h5, manifest_ids, split["heldout_episode_ids"], heldout_name, heldout_h5)
+            export_split_h5_from_npy(
+                episodes_root, manifest_ids, split["train_episode_ids"], train_name, train_h5
+            )
+            export_split_h5_from_npy(
+                episodes_root, manifest_ids, split["heldout_episode_ids"], heldout_name, heldout_h5
+            )
+            sanity_summary.append(_summarize_split_h5(size, split, train_h5, heldout_h5))
         h5_exports.extend([str(train_h5), str(heldout_h5)])
 
         for condition_name, condition in CV_CONDITIONS.items():
@@ -198,8 +223,11 @@ def prepare_handoff(
 
     command_manifest = {
         "output_dir": str(out),
-        "plan_dir": str(Path(plan_dir)),
-        "source_h5": str(source_h5),
+        "plan_dir": str(plan_dir),
+        "data_source": "per_episode_npy",
+        "episodes_root": str(episodes_root),
+        "source_h5_reference": str(source_h5),
+        "interpreter": sys.executable,
         "seeds": [int(x) for x in seeds],
         "sizes": [int(x) for x in sizes],
         "max_epochs": int(max_epochs),
@@ -208,10 +236,15 @@ def prepare_handoff(
         "h5_exports": h5_exports,
         "config_paths": config_paths,
         "commands": commands,
+        "sanity_summary": sanity_summary,
         "stop_rule": "Prepared only. Run scripts/run_head_to_head_100.ps1 to launch the long grid.",
     }
     manifest_path_out = out / "command_manifest.json"
     manifest_path_out.write_text(json.dumps(command_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if not dry_run and sanity_summary:
+        print("Prepared split HDF5 sanity summary:")
+        for row in sanity_summary:
+            print(json.dumps(row, sort_keys=True))
     return command_manifest
 
 
@@ -257,6 +290,224 @@ def export_h5_subset(
         dst.attrs["total_frames"] = int(total)
         dst.attrs["bridgeengine_selected_episode_ids_json"] = json.dumps(selected)
     return output
+
+
+def export_split_h5_from_npy(
+    episodes_root: str | Path,
+    manifest_episode_ids: list[str],
+    selected_episode_ids: list[str],
+    dataset_name: str,
+    output_h5: str | Path,
+    n_points: int = DEFAULT_N_POINTS,
+    target_size: int = TARGET_SIZE,
+) -> Path:
+    """Assemble one self-contained split HDF5 from per-episode .npy arrays.
+
+    This is the data-prep path for the head-to-head grid. It reads each selected
+    episode's raw .npy arrays, applies the exact same preprocessing as the
+    original LeWM export (resize frames/depth to ``target_size``, rescale track
+    coordinates to ``target_size``, pad/trim tracks to ``n_points``), and writes a
+    single gzip-compressed HDF5 with no external or plugin-codec links. The schema
+    matches what ``stable_worldmodel.data.dataset.HDF5Dataset`` and the LeWM
+    auxiliary heads expect:
+
+        ep_len           (E,)                     int32
+        ep_offset        (E,)                     int64
+        pixels           (T, 224, 224, 3)         uint8
+        action           (T, 7)                   float32
+        observation      (T, 7)                   float32
+        depth            (T, 224, 224)            float32   (if available)
+        contact          (T,)                     bool      (if available)
+        tracks           (T, n_points, 2)         float32   (if available)
+        track_visibility (T, n_points)            bool      (if available)
+        object_mask      (T, 224, 224)            bool      (if available)
+
+    Ordering is deterministic: episodes are emitted in ``manifest_episode_ids``
+    order (restricted to the selected ids) so that train/held-out files built for
+    different N are mutually consistent.
+    """
+    episodes_root = Path(episodes_root)
+    selected = [str(x) for x in selected_episode_ids]
+    selected_set = set(selected)
+    # Deterministic order: follow the manifest, keep only selected ids.
+    ordered_ids = [eid for eid in manifest_episode_ids if eid in selected_set]
+    missing_from_manifest = [eid for eid in selected if eid not in set(manifest_episode_ids)]
+    if missing_from_manifest:
+        raise ValueError(f"Selected episodes are not in source manifest: {missing_from_manifest[:5]}")
+
+    episodes: list[dict[str, Any]] = []
+    for episode_id in ordered_ids:
+        ep_dir = episodes_root / episode_id
+        if not ep_dir.is_dir():
+            raise FileNotFoundError(f"Episode directory not found: {ep_dir}")
+        required = ("frames.npy", "actions.npy", "states.npy")
+        missing = [name for name in required if not (ep_dir / name).exists()]
+        if missing:
+            raise FileNotFoundError(f"Episode {episode_id} is missing required arrays: {missing}")
+
+        frames = np.load(ep_dir / "frames.npy")
+        actions = np.load(ep_dir / "actions.npy").astype(np.float32)
+        states = np.load(ep_dir / "states.npy").astype(np.float32)
+        steps = min(len(frames), len(actions), len(states))
+        orig_h = int(frames.shape[1])
+        ep: dict[str, Any] = {
+            "episode_id": episode_id,
+            "ep_len": int(steps),
+            "pixels": _resize_frames(frames[:steps], target_size),
+            "action": actions[:steps],
+            "observation": states[:steps],
+        }
+
+        depth_path = ep_dir / "depth.npy"
+        if depth_path.exists():
+            ep["depth"] = _resize_depth(np.load(depth_path)[:steps], target_size)
+
+        contact_path = ep_dir / "contact.npy"
+        if contact_path.exists():
+            ep["contact"] = np.load(contact_path)[:steps].astype(bool)
+
+        tracks_path = ep_dir / "tracks.npy"
+        vis_path = ep_dir / "visibility.npy"
+        if tracks_path.exists() and vis_path.exists():
+            tracks = np.load(tracks_path)[:steps].astype(np.float32)
+            visibility = np.load(vis_path)[:steps].astype(bool)
+            tracks = _rescale_tracks(tracks, orig_h, target_size)
+            tracks, visibility = _pad_or_trim_tracks(tracks, visibility, n_points)
+            ep["tracks"] = tracks
+            ep["track_visibility"] = visibility
+
+        mask_path = ep_dir / "object_mask.npy"
+        if mask_path.exists():
+            ep["object_mask"] = _resize_mask(np.load(mask_path)[:steps], target_size)
+
+        episodes.append(ep)
+
+    if not episodes:
+        raise ValueError(f"No episodes selected for {dataset_name}")
+
+    has_depth = all("depth" in ep for ep in episodes)
+    has_contact = all("contact" in ep for ep in episodes)
+    has_tracks = all("tracks" in ep for ep in episodes)
+    has_mask = all("object_mask" in ep for ep in episodes)
+
+    ep_lens = np.array([ep["ep_len"] for ep in episodes], dtype=np.int32)
+    ep_offsets = np.zeros(len(episodes), dtype=np.int64)
+    if len(episodes) > 1:
+        ep_offsets[1:] = np.cumsum(ep_lens[:-1])
+    total = int(ep_offsets[-1] + ep_lens[-1])
+
+    output = Path(output_h5)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    def _gzip(name: str, data: np.ndarray) -> None:
+        dst.create_dataset(name, data=data, compression="gzip", compression_opts=4)
+
+    with h5py.File(output, "w") as dst:
+        dst.create_dataset("ep_len", data=ep_lens)
+        dst.create_dataset("ep_offset", data=ep_offsets)
+        _gzip("pixels", np.concatenate([ep["pixels"] for ep in episodes], axis=0))
+        _gzip("action", np.concatenate([ep["action"] for ep in episodes], axis=0))
+        _gzip("observation", np.concatenate([ep["observation"] for ep in episodes], axis=0))
+        if has_depth:
+            _gzip("depth", np.concatenate([ep["depth"] for ep in episodes], axis=0))
+        if has_contact:
+            _gzip("contact", np.concatenate([ep["contact"] for ep in episodes], axis=0))
+        if has_tracks:
+            _gzip("tracks", np.concatenate([ep["tracks"] for ep in episodes], axis=0))
+            _gzip("track_visibility", np.concatenate([ep["track_visibility"] for ep in episodes], axis=0))
+        if has_mask:
+            _gzip("object_mask", np.concatenate([ep["object_mask"] for ep in episodes], axis=0))
+        dst.attrs["dataset_name"] = dataset_name
+        dst.attrs["n_episodes"] = len(episodes)
+        dst.attrs["total_frames"] = int(total)
+        dst.attrs["image_size"] = int(target_size)
+        dst.attrs["n_track_points"] = int(n_points)
+        dst.attrs["data_source"] = "per_episode_npy"
+        dst.attrs["bridgeengine_selected_episode_ids_json"] = json.dumps(ordered_ids)
+    return output
+
+
+def _resize_frames(frames: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
+    T, H, W, C = frames.shape
+    if H == size and W == size:
+        return np.ascontiguousarray(frames)
+    out = np.empty((T, size, size, C), dtype=frames.dtype)
+    for i in range(T):
+        out[i] = cv2.resize(frames[i], (size, size), interpolation=cv2.INTER_AREA)
+    return out
+
+
+def _resize_depth(depths: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
+    T, H, W = depths.shape
+    depths = depths.astype(np.float32)
+    if H == size and W == size:
+        return np.ascontiguousarray(depths)
+    out = np.empty((T, size, size), dtype=np.float32)
+    for i in range(T):
+        out[i] = cv2.resize(depths[i], (size, size), interpolation=cv2.INTER_AREA)
+    return out
+
+
+def _resize_mask(masks: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
+    T, H, W = masks.shape
+    if H == size and W == size:
+        return np.ascontiguousarray(masks.astype(bool))
+    out = np.empty((T, size, size), dtype=bool)
+    for i in range(T):
+        resized = cv2.resize(masks[i].astype(np.uint8), (size, size), interpolation=cv2.INTER_NEAREST)
+        out[i] = resized.astype(bool)
+    return out
+
+
+def _rescale_tracks(tracks: np.ndarray, orig_size: int, new_size: int = TARGET_SIZE) -> np.ndarray:
+    if orig_size == new_size:
+        return tracks
+    return tracks * (new_size / orig_size)
+
+
+def _pad_or_trim_tracks(tracks: np.ndarray, visibility: np.ndarray, n_points: int) -> tuple[np.ndarray, np.ndarray]:
+    T, N, _ = tracks.shape
+    if N == n_points:
+        return tracks, visibility
+    if N > n_points:
+        return tracks[:, :n_points], visibility[:, :n_points]
+    pad_tracks = np.zeros((T, n_points, 2), dtype=tracks.dtype)
+    pad_vis = np.zeros((T, n_points), dtype=visibility.dtype)
+    pad_tracks[:, :N] = tracks
+    pad_vis[:, :N] = visibility
+    return pad_tracks, pad_vis
+
+
+def _summarize_split_h5(
+    size: int, split: dict[str, Any], train_h5: Path, heldout_h5: Path
+) -> dict[str, Any]:
+    def _describe(path: Path) -> dict[str, Any]:
+        with h5py.File(path, "r") as f:
+            info = {
+                "path": str(path),
+                "n_episodes": int(f.attrs.get("n_episodes", len(f["ep_len"]))),
+                "total_frames": int(f.attrs.get("total_frames", 0)),
+                "keys": sorted(k for k in f.keys() if k not in ("ep_len", "ep_offset")),
+            }
+            for key in ("pixels", "depth", "tracks", "track_visibility"):
+                if key in f:
+                    info[f"{key}_shape"] = list(f[key].shape)
+            # Force-read a depth/tracks slice to prove the file is self-contained
+            # and decodable by this interpreter (no plugin-codec dependency).
+            if "depth" in f:
+                info["depth_min"] = float(np.asarray(f["depth"][0]).min())
+            if "tracks" in f:
+                info["tracks_sample_max"] = float(np.asarray(f["tracks"][0]).max())
+        return info
+
+    return {
+        "scale_n": int(size),
+        "split_id": split.get("split_id"),
+        "expected_train_episodes": len(split["train_episode_ids"]),
+        "expected_heldout_episodes": len(split["heldout_episode_ids"]),
+        "train": _describe(train_h5),
+        "heldout": _describe(heldout_h5),
+    }
 
 
 def run_command_manifest(manifest_path: str | Path, *, skip_existing: bool = True, max_cells: int | None = None) -> None:
@@ -363,7 +614,10 @@ def main() -> None:
 
     prepare = sub.add_parser("prepare")
     prepare.add_argument("--plan-dir", default=str(DEFAULT_PLAN_DIR))
-    prepare.add_argument("--source-h5", default=str(DEFAULT_SOURCE_H5))
+    prepare.add_argument("--source-h5", default=str(DEFAULT_SOURCE_H5),
+                         help="Reference only; recorded in the manifest. Split HDF5s are built from --episodes-root.")
+    prepare.add_argument("--episodes-root", default=str(DEFAULT_EPISODES_ROOT),
+                         help="Directory of per-episode .npy folders used to assemble self-contained split HDF5s.")
     prepare.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
     prepare.add_argument("--output-dir", default="head_to_head_results/run_100")
     prepare.add_argument("--lewm-root", default=str(DEFAULT_LEWM_ROOT))
@@ -397,6 +651,7 @@ def main() -> None:
             batch_size=args.batch_size,
             lr=args.lr,
             dry_run=args.dry_run,
+            episodes_root=args.episodes_root,
         )
         print(json.dumps(manifest, indent=2, sort_keys=True))
     elif args.cmd == "run-manifest":
