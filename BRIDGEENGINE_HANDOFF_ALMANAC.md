@@ -26,6 +26,8 @@ Latest live state:
 - The all-100 snapshot has merged Gemini labels without duplicate API spend.
 - Kevin reviewed 100/100 clips in the dedicated GUI and changed 58 scores.
 - A score-calibrated LeWM scale curve over N = 25, 50, 100 has run with two seeds per family.
+- A 50-episode boundary/subgoal reliability queue has been generated at `gold_sets/boundary_subgoal_review_50.json`.
+- The final head-to-head comparison is preregistered in `HEAD_TO_HEAD_PREREGISTRATION.md`.
 
 ## Current Workspace
 
@@ -901,11 +903,11 @@ Human-calibrated scale curve N=25/50/100, 2 seeds: PASS
 
 ## Recommended Next Work Order
 
-1. Review subtask boundaries and subgoal selections on a 25-50 episode subset, then run reliability reporting.
-2. Re-run the calibrated scale curve with at least 3 seeds if wall-clock allows.
-3. Download or expose more BridgeData V2 episodes if Kevin wants N > 100. Do not spend on full-corpus labeling without a fresh cost gate.
-4. Implement RLDS or LeRobot export only if the project is meant to interoperate with standard training stacks rather than stay as a BridgeEngine-native POC.
-5. Update README/STATUS around the human-calibrated result before publicizing the repo.
+1. Review subtask boundaries and subgoal selections on the prepared 50-episode subset, then run reliability reporting.
+2. Get real perceptive mask/depth/track labels working. `bridgeengine.perceptive_status --require-real` must pass before the head-to-head is valid.
+3. Run the preregistered pi0.7-vs-perceptive head-to-head with seeds 0-4.
+4. Download or expose more BridgeData V2 episodes if Kevin wants N > 100. Do not spend on full-corpus labeling without a fresh cost gate.
+5. Fork/clean the public release only after the controlled comparison is locked.
 
 ## How To Demo Today
 

@@ -124,6 +124,29 @@ Delta versus baseline:
 
 Read this as: the real benchmark path works, and after Kevin reviewed all 100 clips and changed 58 scores, the metadata+subgoal family beats baseline across the tested sizes. This is still a two-seed, 100-episode LeWM frozen-adapter smoke result. Boundary and subgoal labels have not been human-gold validated.
 
+## Final Closeout Path
+
+The next human task is boundary/subgoal reliability review, not rescoring. The prepared 50-episode queue is:
+
+```text
+gold_sets/boundary_subgoal_review_50.json
+```
+
+Start the focused review GUI:
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.review_gui `
+  --snapshot snap_2026_05_11_1dde3edf5d `
+  --gold-file C:\Users\Kevin\projects\annotation_pipeline\bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
+  --episode-file gold_sets\boundary_subgoal_review_50.json `
+  --review-goal boundary_subgoal `
+  --port 8787
+```
+
+For each selected episode, leave the score alone and only accept or reject the auto subtask boundaries and auto subgoal frames.
+
+The controlled head-to-head experiment is preregistered in `HEAD_TO_HEAD_PREREGISTRATION.md`. The public fork plan is in `PUBLIC_RELEASE_PLAN.md`.
+
 ## Value-Aware Curation
 
 BridgeEngine can score each episode by estimated curation value and write the score directly into `episodes.parquet`.

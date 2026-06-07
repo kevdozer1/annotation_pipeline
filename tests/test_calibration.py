@@ -6,6 +6,7 @@ from bridgeengine.calibration import calibration_reliability, load_or_create_cal
 from bridgeengine.apply_gold import apply_gold_scores_to_snapshot
 from bridgeengine.ingest import ingest_bridge_v2
 from bridgeengine.orchestrate import run_labelers
+from bridgeengine.reliability_review import plan_reliability_review
 from bridgeengine.review_gui import ReviewDataset
 
 
@@ -109,3 +110,55 @@ def test_apply_gold_scores_to_calibrated_snapshot(tmp_path: Path) -> None:
     assert metadata["curation_keep"] is False
     assert metadata["human_calibrated"] is True
     assert row["snapshot_id"] == target_snapshot
+
+
+def test_boundary_subgoal_review_subset_has_separate_completion(tmp_path: Path) -> None:
+    result = ingest_bridge_v2(source="synthetic", episodes=2, data_root=tmp_path)
+    run_labelers(result["snapshot_id"], data_root=tmp_path, vlm_backend="mock")
+    gold_path = tmp_path / "calibration_gold.json"
+    payload = load_or_create_calibration_gold(result["snapshot_id"], gold_path, data_root=tmp_path)
+    first_id = payload["episodes"][0]["episode_id"]
+    first_score = payload["episodes"][0]["auto"]["metadata"]["quality"]
+    update_episode_review(
+        result["snapshot_id"],
+        first_id,
+        curation_quality=first_score,
+        mistake=False,
+        gold_file=gold_path,
+        data_root=tmp_path,
+    )
+
+    subset_path = tmp_path / "boundary_subset.json"
+    plan = plan_reliability_review(
+        result["snapshot_id"],
+        subset_path,
+        count=1,
+        gold_file=gold_path,
+        data_root=tmp_path,
+    )
+    dataset = ReviewDataset(
+        result["snapshot_id"],
+        data_root=tmp_path,
+        gold_file=gold_path,
+        episode_file=subset_path,
+        review_goal="boundary_subgoal",
+    )
+    assert plan["episode_count"] == 1
+    assert dataset.state()["episode_count"] == 1
+    assert dataset.state()["reviewed_count"] == 0
+
+    episode_id = plan["episode_ids"][0]
+    score = dataset.episode_payload(episode_id)["review"]["gold_score"]
+    saved = dataset.save_review(
+        {
+            "episode_id": episode_id,
+            "score": score,
+            "mistake": False,
+            "reason": "",
+            "notes": "",
+            "accept_auto_metadata": False,
+            "accept_auto_subtasks": True,
+            "accept_auto_subgoals": True,
+        }
+    )
+    assert saved["state"]["reviewed_count"] == 1

@@ -98,8 +98,20 @@ Interpretation: after score calibration, the metadata+subgoal family beats basel
 
 ## What Is Still Blocked
 
-- Subtask boundary and subgoal labels are not human-gold validated.
+- Subtask boundary and subgoal labels are not human-gold validated; use `gold_sets/boundary_subgoal_review_50.json` with `--review-goal boundary_subgoal`.
 - The scale curve has only two seeds.
+- Perceptive mask/depth/track labels are not ready for the final head-to-head; `bridgeengine.perceptive_status --require-real` currently fails because no perceptive rows are present on the calibrated snapshot.
 - The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus.
 - Standard RLDS/LeRobot export is not implemented.
 - This should be framed as a calibrated smoke result, not a settled claim that pi0.7-style conditioning improves robot learning.
+
+## Next Command For Kevin
+
+```powershell
+.\.venv\Scripts\python.exe -m bridgeengine.review_gui `
+  --snapshot snap_2026_05_11_1dde3edf5d `
+  --gold-file C:\Users\Kevin\projects\annotation_pipeline\bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
+  --episode-file gold_sets\boundary_subgoal_review_50.json `
+  --review-goal boundary_subgoal `
+  --port 8787
+```

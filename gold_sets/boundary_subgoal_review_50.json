@@ -1,0 +1,522 @@
+{
+  "episode_count": 50,
+  "episode_ids": [
+    "episode_000352",
+    "episode_000392",
+    "episode_000425",
+    "episode_001146",
+    "episode_001972",
+    "episode_004196",
+    "episode_004558",
+    "episode_004655",
+    "episode_005957",
+    "episode_006181",
+    "episode_007275",
+    "episode_009653",
+    "episode_012601",
+    "episode_012632",
+    "episode_013031",
+    "episode_013880",
+    "episode_013972",
+    "episode_014392",
+    "episode_015003",
+    "episode_015910",
+    "episode_016049",
+    "episode_017444",
+    "episode_018420",
+    "episode_018682",
+    "episode_018799",
+    "episode_023219",
+    "episode_023803",
+    "episode_024911",
+    "episode_027072",
+    "episode_030540",
+    "episode_032021",
+    "episode_032806",
+    "episode_033512",
+    "episode_034313",
+    "episode_034676",
+    "episode_035339",
+    "episode_035348",
+    "episode_035436",
+    "episode_036021",
+    "episode_036781",
+    "episode_041922",
+    "episode_042954",
+    "episode_043068",
+    "episode_043842",
+    "episode_044074",
+    "episode_044796",
+    "episode_047428",
+    "episode_048598",
+    "episode_050382",
+    "episode_052330"
+  ],
+  "episodes": [
+    {
+      "auto_score": 5,
+      "episode_id": "episode_000352",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "6f1a55e1ae5a73ca0e3e5bea14d44f096230caef24c6f98039b9dbd1ea08fd3a",
+      "task": "pick up pan from stove"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_000392",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "633fc8ff91a6f86479b91e115d14348b923a42eb30f16839c719c9d2b4cbc819",
+      "task": "put carrot on cutting board"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_000425",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "7c5ceeb37efbb71f7a6ce188b095dac9f90ec3c656aed76bda5fe68d7e9d2859",
+      "task": "put cup from counter or drying rack into sink"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_001146",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "414779c2bd912d07cb993f3607f31a94d2ee440d2b4a25d9403c08a2d38e0a87",
+      "task": "put banana in pot or pan"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_001972",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "0f715fa3f9180c2cb9d48d6a1e7ef45266acc856392d2f7fd54c2257b70d4566",
+      "task": "put pan on stove from sink"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_004196",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "0e505902be3438e9fc0ac1579712b0138d9bc389130de6a6d7f94f5a6059eaf0",
+      "task": "put bowl on plate cardboard fence"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_004558",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "232cbc786370cc9a0e42ab93187209b9af533faeeae35d0d2d67e67407850996",
+      "task": "put corn into bowl"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_004655",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "01f2cd59fe006dc903c65b8d54603e83cc497742e98d0b4751ae30f98f40c7f1",
+      "task": "push the silver pot to the lower right of the burner"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_005957",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "408c229aafd33cc2bb45b1377ca5f9052a2f5f92d55f04f351eb7968086769f1",
+      "task": "put sweet potato in pot which is in sink"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_006181",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "3eeaf90416ef6f6ba99d73d94474fb3b0fc9663bdd4432b09c45f1dd7814df78",
+      "task": "Put the sushi in the pot."
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_007275",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "3143107200459d82718a5a69acfbbfbb4b5a0dd30c04f2353d41d0ab15454dd3",
+      "task": "remove the block from the tower to put it on top of the cylinder"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_009653",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "16867a9753750e5d249723a7f444f9250ba685b34d7740ebfbe1dde87a0c7c3a",
+      "task": "put eggplant into pot or pan"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_012601",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "3e8b15e0e4679d03eb2763db3519004399ba046cd70cb09660b5de95eb1706a2",
+      "task": "put the yellow knife on the right burner"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_012632",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "ad381c26eaaba4958af68c9bbd28e866265c1ba108650f8fc8d473d668ea3fd4",
+      "task": "put broccoli in pot"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_013031",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "4bbb73170d98af512d6d4cd220b0ca922dcf32698236280f59a2b6074889c4a4",
+      "task": "put spoon in pot"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_013880",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "2e09abfb28d69c7c03b7dc0b743a2b8165df2fffbee137298e5e649f144babf7",
+      "task": "put the sushi into the pot."
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_013972",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "0e5802aa16d4f746eac37901a66c3367eaf2c061f5d058d66dffbd862cffecdf",
+      "task": "put corn in pan which is on stove"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_014392",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "360a8e5eec9d5251e88830fa9d183adbf10f5ea86ce00353b4c755ccf5d09ef1",
+      "task": "put corn in pot which is in sink"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_015003",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "055669537e3e8c791810d2ac3b83b252720ea98ababf727f9f0851833123ec9d",
+      "task": "put egg in pot or pan an put pot or pan on stove"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_015910",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "1d4f46b3d7b0ecaa0bea58a2f6b749501f010d04f66bec176605e2f727d5b9a5",
+      "task": "remove the ball from the cup and put it on top of the ring"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_016049",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "6e0b2a51d32270fb4017875ba324e52e7ee83c1c5b127fdcfa4f404af47c10cd",
+      "task": "put banana on plate"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_017444",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "300ebe4d5ace6ed7221688a6139adcdaba21423c59374cbbd7a0a2925ad5d49b",
+      "task": "put the ball in the cup"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_018420",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "c8d8d80fc7e3b9f033518a706a9dd600bd8116a29d595b3e4d0b6eb67cd49113",
+      "task": "move the red cube and put it on the blue block"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_018682",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": false,
+      "sort_key": "9753bf843c15b803acd0d4996547a1ce8e49af756eb01a2ff0544e102531864d",
+      "task": "put corn on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_018799",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "4da659b69b5688dd607f527d7c6d9807c79b0d607adf37b1e3e99c977acb0092",
+      "task": "put lemon on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_023219",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "3fb49cee1a95e6512690a27fa63104dabe32b766bb54077b9d30b8ba2f41e9fa",
+      "task": "put sushi on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_023803",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "34072b0d124dc2e640f0a6b725f1948abfdcb4c18bead3209d65f310070204db",
+      "task": "put banana on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_024911",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "5b5be8abcbc412c4254ae911d68f7d5fbde6109463d39efe4bdece25a6ce8b97",
+      "task": "put pot or pan from sink into drying rack"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_027072",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "693d04d4d71370515e927c7670a683fa53fc364ce734b728dd1dea64be17138e",
+      "task": "pick up pan from stove"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_030540",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "225546dc2dfb3c2cd8f94baecf2ee877cf056dc65ba4c8a9d68363690a963fae",
+      "task": "put bowl on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_032021",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "7462c4ff7989082d88e3a7b41a860c2f2f1548d0a4885d61539a8f95a5adcb7b",
+      "task": "put knife on cutting board"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_032806",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "13a7fc75eaad621281cad2ed9ca88f348ee3500c543ce6f108342f136d626a88",
+      "task": "put bowl on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_033512",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "4411cd0cc4145e095de974c025d5189c09a3f95efea0e73be53c1260ea65cf01",
+      "task": "put pan on stove from sink"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_034313",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "314fc0c28fbc37766447a97b1aa84d5343a82a2d7258afeee4cfca2dec83df6a",
+      "task": "put carrot in pot cardboard fence"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_034676",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "45c1b95ad1e4ffe376387e0c6a80e0a9f0539fdb97c2bf30c3c8f958d4740dc0",
+      "task": "put red bottle in sink"
+    },
+    {
+      "auto_score": 2,
+      "episode_id": "episode_035339",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "440a69899848acaebe9ba6ddd12cde0a54e252c57a0af687f8730460e7f176d7",
+      "task": "take the eggplant and put it between the two right burners"
+    },
+    {
+      "auto_score": 2,
+      "episode_id": "episode_035348",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "7139ce72488c06fd4b227a726610789c00a935376ca608e11bc74e6df0d6bebd",
+      "task": "take the eggplant and put it between the two right burners"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_035436",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "002f6d43c288c63239ac8c8f622ab70d8f6e715368c3dd1bab0321aefe7b05aa",
+      "task": "put pear in bowl"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_036021",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "09b85ca1fe4fe306636a86aaca40098c5cfd2a85d79a407f96893eaa7d05d58b",
+      "task": "put banana on plate"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_036781",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": false,
+      "sort_key": "2264c4bd28cba0cc4e71c8511548bf00276b672154bc45343d1c9efafa063a94",
+      "task": "put corn on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_041922",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "315eabd5d1e589b50c0e1c039156002589e5174ca7b5e90a163d8c8405cc3b87",
+      "task": "put corn in pan which is on stove"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_042954",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "0f51a42441c2251e8f8a17e50a4576c2542200995780b91c438a6a31a57cec45",
+      "task": "put knife on cutting board"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_043068",
+      "gold_score": 2,
+      "review_score": 2,
+      "score_changed": true,
+      "sort_key": "d409b714ada6d472e5ed856ab37c21373eb2003b9a2684a572605d5b70a05469",
+      "task": "put pan from sink into drying rack"
+    },
+    {
+      "auto_score": 2,
+      "episode_id": "episode_043842",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "f13485d6356e696011c51ff28391855986e8ed19c932837a5c04c1b7012fbf4f",
+      "task": "put the ball in the cup"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_044074",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "2253cca48215b8f24243e0288719fcbf167c36814c5bd255dba236e961fa9333",
+      "task": "put sushi in pot cardboard fence"
+    },
+    {
+      "auto_score": 4,
+      "episode_id": "episode_044796",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": true,
+      "sort_key": "72b83e2183935928754d0f87ac43ef4288cc29477f79cbdc7a782a81947076db",
+      "task": "put bowl on plate"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_047428",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "5b535423cb99a57d6a40e736abf8d98eec1ee8d9478aef0bcf62a0ed540f1066",
+      "task": "put corn into bowl"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_048598",
+      "gold_score": 5,
+      "review_score": 5,
+      "score_changed": false,
+      "sort_key": "381716df607dcbbf987305ed1b99b712dddd0f01dbcb79c59f3f06a10e7ebe55",
+      "task": "put broccoli in pot"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_050382",
+      "gold_score": 4,
+      "review_score": 4,
+      "score_changed": true,
+      "sort_key": "393811165c350573f02635dd6003940ddc2dc1a7270dc608ce83e801231a4530",
+      "task": "put broccoli in pot or pan"
+    },
+    {
+      "auto_score": 5,
+      "episode_id": "episode_052330",
+      "gold_score": 3,
+      "review_score": 3,
+      "score_changed": true,
+      "sort_key": "47eb994bbbc4e431a0c094cef54e7dc60205e58c51b8570d51df253988f24125",
+      "task": "put eggplant into pot or pan"
+    }
+  ],
+  "gold_file": "bridgeengine_data\\snapshots\\snap_2026_05_11_1dde3edf5d\\gold\\calibration_gold.json",
+  "quality_counts": {
+    "2": 6,
+    "3": 8,
+    "4": 10,
+    "5": 26
+  },
+  "requested_count": 50,
+  "review_instruction": "Open the review GUI with --review-goal boundary_subgoal. Leave the score alone. For each episode, check the subtask-boundary and subgoal boxes if the auto labels look acceptable; leave them unchecked only when you genuinely disagree, then Save review and next.",
+  "score_changed_counts": {
+    "False": 20,
+    "True": 30
+  },
+  "selection_policy": "Deterministic boundary/subgoal reliability subset. Prefer score-changed episodes, but preserve unchanged examples and quality-score coverage.",
+  "snapshot_id": "snap_2026_05_11_1dde3edf5d"
+}

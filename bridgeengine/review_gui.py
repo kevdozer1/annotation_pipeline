@@ -26,7 +26,14 @@ from bridgeengine.paths import data_root as resolve_data_root
 
 
 class ReviewDataset:
-    def __init__(self, snapshot_id: str, data_root: str | Path | None = None, gold_file: str | Path | None = None):
+    def __init__(
+        self,
+        snapshot_id: str,
+        data_root: str | Path | None = None,
+        gold_file: str | Path | None = None,
+        episode_file: str | Path | None = None,
+        review_goal: str = "score",
+    ):
         self.snapshot_id = snapshot_id
         self.root = resolve_data_root(data_root)
         self.snapshot_path = self.root / "snapshots" / snapshot_id
@@ -35,6 +42,10 @@ class ReviewDataset:
         self.gold_file = Path(gold_file) if gold_file else default_gold_path(snapshot_id, self.root)
         load_or_create_calibration_gold(snapshot_id, self.gold_file, data_root=self.root)
         self._load_tables()
+        self.review_episode_ids = self._load_review_episode_ids(episode_file)
+        if review_goal not in {"score", "boundary_subgoal"}:
+            raise ValueError("review_goal must be 'score' or 'boundary_subgoal'")
+        self.review_goal = review_goal
         self._lock = threading.Lock()
 
     def _load_tables(self) -> None:
@@ -42,15 +53,39 @@ class ReviewDataset:
         self.labels = pd.read_parquet(self.snapshot_path / "labels.parquet").sort_values(["episode_id", "labeler_name"]).reset_index(drop=True)
         self.episode_ids = [str(x) for x in self.episodes["episode_id"].tolist()]
 
+    def _load_review_episode_ids(self, episode_file: str | Path | None) -> list[str]:
+        if episode_file is None:
+            return list(self.episode_ids)
+        path = Path(episode_file)
+        if not path.exists():
+            raise FileNotFoundError(f"Episode review file not found: {path}")
+        if path.suffix.lower() == ".json":
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                values = payload.get("episode_ids", [])
+            else:
+                values = payload
+        else:
+            values = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        selected = [str(value) for value in values]
+        missing = sorted(set(selected) - set(self.episode_ids))
+        if missing:
+            raise ValueError(f"Episode review file includes ids missing from snapshot: {missing[:10]}")
+        if not selected:
+            raise ValueError(f"Episode review file is empty: {path}")
+        return selected
+
     def state(self) -> dict[str, Any]:
         summary = review_summary(self.snapshot_id, self.gold_file, data_root=self.root)
-        reviewed = int(summary["reviewed"].sum()) if not summary.empty else 0
+        summary = summary[summary["episode_id"].astype(str).isin(self.review_episode_ids)].reset_index(drop=True)
+        goal_reviewed = self._goal_reviewed_ids()
+        reviewed = len(goal_reviewed & set(self.review_episode_ids))
         report = calibration_reliability(self.snapshot_id, self.gold_file, data_root=self.root)
         queue = [
             {
                 "episode_id": str(row.episode_id),
                 "task": str(row.task),
-                "reviewed": bool(row.reviewed),
+                "reviewed": str(row.episode_id) in goal_reviewed,
                 "auto_score": _none_if_nan(row.auto_score),
                 "gold_score": _none_if_nan(row.gold_score),
                 "auto_keep": _none_if_nan(row.auto_keep),
@@ -62,10 +97,12 @@ class ReviewDataset:
         ]
         return {
             "snapshot_id": self.snapshot_id,
+            "review_goal": self.review_goal,
             "gold_file": str(self.gold_file.resolve()),
-            "episode_count": len(self.episode_ids),
+            "episode_count": len(self.review_episode_ids),
+            "snapshot_episode_count": len(self.episode_ids),
             "reviewed_count": reviewed,
-            "remaining_count": len(self.episode_ids) - reviewed,
+            "remaining_count": len(self.review_episode_ids) - reviewed,
             "quality_exact_agreement": report.get("quality_exact_agreement"),
             "quality_within_one_agreement": report.get("quality_within_one_agreement"),
             "boundary_iou": report.get("subtask_boundary_temporal_iou_mean"),
@@ -84,6 +121,7 @@ class ReviewDataset:
         summary = review_summary(self.snapshot_id, self.gold_file, data_root=self.root)
         row = summary.loc[summary["episode_id"].astype(str) == episode_id]
         review = row.iloc[0].to_dict() if not row.empty else {}
+        gold_entry = self._gold_entry(episode_id)
         auto_score = _safe_int(metadata.get("curation_quality")) or _safe_int(metadata.get("quality")) or 3
         gold_score = _safe_int(review.get("gold_score")) or auto_score
         video_path = Path(str(episode.get("source_path_video", "")))
@@ -104,6 +142,8 @@ class ReviewDataset:
                 "auto_mistake": bool(metadata.get("mistake", False)),
                 "gold_mistake": _none_if_nan(review.get("gold_mistake")),
                 "notes": "" if review.get("notes") is None or pd.isna(review.get("notes")) else str(review.get("notes")),
+                "accept_auto_subtasks": _all_accept_values(gold_entry.get("gold", {}).get("subtasks", [])),
+                "accept_auto_subgoals": _all_accept_values(gold_entry.get("gold", {}).get("subgoals", [])),
             },
             "prev_episode_id": self.prev_episode_id(episode_id),
             "next_episode_id": self.next_episode_id(episode_id),
@@ -149,24 +189,49 @@ class ReviewDataset:
         return None
 
     def next_episode_id(self, episode_id: str) -> str | None:
-        idx = self.episode_ids.index(episode_id)
-        return self.episode_ids[(idx + 1) % len(self.episode_ids)] if self.episode_ids else None
+        ids = self.review_episode_ids
+        idx = ids.index(episode_id)
+        return ids[(idx + 1) % len(ids)] if ids else None
 
     def prev_episode_id(self, episode_id: str) -> str | None:
-        idx = self.episode_ids.index(episode_id)
-        return self.episode_ids[(idx - 1) % len(self.episode_ids)] if self.episode_ids else None
+        ids = self.review_episode_ids
+        idx = ids.index(episode_id)
+        return ids[(idx - 1) % len(ids)] if ids else None
 
     def next_unreviewed_episode_id(self, episode_id: str) -> str | None:
-        summary = review_summary(self.snapshot_id, self.gold_file, data_root=self.root)
-        reviewed = {str(row.episode_id) for row in summary.itertuples(index=False) if bool(row.reviewed)}
-        if len(reviewed) >= len(self.episode_ids):
+        ids = self.review_episode_ids
+        reviewed = self._goal_reviewed_ids()
+        reviewed_in_queue = reviewed & set(ids)
+        if len(reviewed_in_queue) >= len(ids):
             return None
-        start = self.episode_ids.index(episode_id)
-        for offset in range(1, len(self.episode_ids) + 1):
-            candidate = self.episode_ids[(start + offset) % len(self.episode_ids)]
+        start = ids.index(episode_id)
+        for offset in range(1, len(ids) + 1):
+            candidate = ids[(start + offset) % len(ids)]
             if candidate not in reviewed:
                 return candidate
         return None
+
+    def _goal_reviewed_ids(self) -> set[str]:
+        if self.review_goal == "score":
+            summary = review_summary(self.snapshot_id, self.gold_file, data_root=self.root)
+            return {str(row.episode_id) for row in summary.itertuples(index=False) if bool(row.reviewed)}
+        gold = _read_json(self.gold_file)
+        reviewed: set[str] = set()
+        for entry in gold.get("episodes", []):
+            subtasks = entry.get("gold", {}).get("subtasks", [])
+            subgoals = entry.get("gold", {}).get("subgoals", [])
+            subtask_done = bool(subtasks) and all(item.get("accept_auto") is not None for item in subtasks)
+            subgoal_done = bool(subgoals) and all(item.get("accept_auto") is not None for item in subgoals)
+            if subtask_done and subgoal_done:
+                reviewed.add(str(entry.get("episode_id")))
+        return reviewed
+
+    def _gold_entry(self, episode_id: str) -> dict[str, Any]:
+        gold = _read_json(self.gold_file)
+        for entry in gold.get("episodes", []):
+            if str(entry.get("episode_id")) == str(episode_id):
+                return entry
+        return {}
 
     def _label_map(self, episode_id: str) -> dict[str, Any]:
         episode_labels = self.labels.loc[self.labels["episode_id"].astype(str) == str(episode_id)]
@@ -604,7 +669,7 @@ function renderState() {
     button.className = `queue-item ${item.reviewed ? 'reviewed' : ''} ${item.episode_id === currentId ? 'active' : ''}`;
     button.onclick = () => loadEpisode(item.episode_id);
     const score = item.gold_score == null ? `auto ${item.auto_score}` : `auto ${item.auto_score} -> gold ${item.gold_score}`;
-    button.innerHTML = `<div class="qid">${item.reviewed ? 'reviewed' : 'open'} · ${item.episode_id}</div><div class="qtask">${escapeHtml(item.task || '')}</div><div class="qscore">${score}</div>`;
+    button.innerHTML = `<div class="qid">${item.reviewed ? 'reviewed' : 'open'} - ${item.episode_id}</div><div class="qtask">${escapeHtml(item.task || '')}</div><div class="qscore">${score}</div>`;
     queue.appendChild(button);
   }
 }
@@ -635,8 +700,8 @@ function renderEpisode() {
   document.getElementById('autoKeep').textContent = `Auto keep: ${episode.metadata.curation_keep ? 'yes' : 'no'}`;
   document.getElementById('mistake').checked = Boolean(episode.review.gold_mistake ?? episode.review.auto_mistake);
   document.getElementById('acceptMeta').checked = Boolean(episode.review.gold_score === episode.review.auto_score);
-  document.getElementById('acceptSubtasks').checked = false;
-  document.getElementById('acceptSubgoals').checked = false;
+  document.getElementById('acceptSubtasks').checked = Boolean(episode.review.accept_auto_subtasks);
+  document.getElementById('acceptSubgoals').checked = Boolean(episode.review.accept_auto_subgoals);
   document.getElementById('reason').value = episode.metadata.scoring_reason || '';
   document.getElementById('notes').value = episode.review.notes || '';
   renderScores(episode.review.gold_score || episode.review.auto_score || 3);
@@ -840,6 +905,15 @@ def _none_if_nan(value: Any) -> Any:
     return value
 
 
+def _all_accept_values(items: list[dict[str, Any]]) -> bool | None:
+    if not items:
+        return None
+    values = [item.get("accept_auto") for item in items]
+    if any(value is None for value in values):
+        return None
+    return all(bool(value) for value in values)
+
+
 def _jsonable(value: Any) -> Any:
     value = _none_if_nan(value)
     if isinstance(value, dict):
@@ -876,12 +950,29 @@ def main() -> None:
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--data-root", default=None)
     parser.add_argument("--gold-file", default=None)
+    parser.add_argument(
+        "--episode-file",
+        default=None,
+        help="Optional JSON or newline text file with episode_ids to review. The gold file can still contain all episodes.",
+    )
+    parser.add_argument(
+        "--review-goal",
+        choices=["score", "boundary_subgoal"],
+        default="score",
+        help="Completion rule for the queue. Use boundary_subgoal after score calibration to review subtask/subgoal reliability.",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
-    dataset = ReviewDataset(args.snapshot, data_root=Path(args.data_root) if args.data_root else None, gold_file=args.gold_file)
+    dataset = ReviewDataset(
+        args.snapshot,
+        data_root=Path(args.data_root) if args.data_root else None,
+        gold_file=args.gold_file,
+        episode_file=args.episode_file,
+        review_goal=args.review_goal,
+    )
     port = _find_free_port(args.port)
     server = ThreadingHTTPServer((args.host, port), make_handler(dataset))
     url = f"http://{args.host}:{port}"
