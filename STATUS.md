@@ -108,16 +108,28 @@ Interpretation: after score and boundary/subgoal correction, the metadata+subgoa
 ## What Is Still Blocked
 
 - Only 50 of 100 episodes have explicit human-reviewed subtask boundaries; the remaining 50 use auto boundaries in the applied snapshot.
-- The scale curve has only two seeds; the pre-registered head-to-head should use 3-5 seeds.
-- Perceptive mask/depth/track labels are not ready for the final head-to-head; `bridgeengine.perceptive_status --require-real` currently fails because no perceptive rows are present on the calibrated snapshot.
+- The scale curve has only two seeds; the pre-registered head-to-head is fixed to seeds `42, 137, 256`.
+- The perceptive-vs-pi0.7 head-to-head is now aligned to Kevin's cached LeWM aux-head fullscale runs, not to perceptive rows inside BridgeEngine's `labels.parquet`.
+- The current methodological blocker is the evaluator: LeWM's cached fullscale runs are real, but `LeWM_testbed/scripts/evaluate_boring3d.py` uses a per-seed random 90/10 split. The head-to-head requires a fixed shared split generated under `head_to_head_results/preregistered_100/splits`.
 - The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus.
 - Standard RLDS/LeRobot export is not implemented.
 - This should be framed as a calibrated smoke result, not a settled claim that pi0.7-style conditioning improves robot learning.
 
-## Next Command For Kevin
+## Head-To-Head Plan
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --require-real
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.head_to_head --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --output-dir head_to_head_results\preregistered_100 --sizes 25 50 100 --heldout-count 10 --split-seed 0 --train-seeds 42 137 256
 ```
 
-That command should fail until real SAM/depth/track outputs are present. Passing it is the next critical path before the final pi0.7-vs-perceptive head-to-head claim.
+This command is planning-only. It verifies that BridgeEngine's human-gold 100 episodes match LeWM's `manifest_100.json`, writes the fixed splits, and estimates runtime:
+
+```text
+LeWM CV fullscale cached N=100 training: 1.660 hours
+LeWM CV all scales from scratch estimate: 2.904 hours
+LeWM CV incremental estimate reusing cached N=100: 1.245 hours
+BridgeEngine pi0.7 3-seed estimate: 0.991 hours
+Total from scratch estimate: 3.896 hours
+Total incremental estimate reusing cached CV N=100: 2.236 hours
+```
+
+Next critical path: adapt or wrap the LeWM evaluator so cached A/B/D/E checkpoints and BridgeEngine pi0.7 checkpoints are evaluated on the same fixed held-out episodes before plotting one shared-axis result.

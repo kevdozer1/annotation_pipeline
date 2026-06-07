@@ -1,4 +1,4 @@
-# BridgeEngine Head-To-Head Preregistration
+# BridgeEngine vs LeWM Head-To-Head Preregistration
 
 Last updated: 2026-06-07
 
@@ -6,23 +6,87 @@ Last updated: 2026-06-07
 
 Primary research question:
 
-> On the same 100 BridgeData subset, do pi0.7-style structured annotations outperform the perceptive vision signals used in the previous LeWM experiment?
+> On the same 100 BridgeData subset, does the pi0.7 class of structured annotations outperform the perceptive CV signals from Kevin's previous LeWM experiment?
 
-This is the controlled comparison that should close the internal research loop. Same data, same held-out split, same LeWM metric, same seed set. The only intended variable is the conditioning signal family.
+This is an annotation-strategy comparison, not a pure signal-content comparison. The mechanisms differ:
+
+- LeWM perceptive signals are auxiliary prediction targets through native aux heads.
+- BridgeEngine pi0.7 signals are conditioning inputs through the BridgeEngine adapter path.
+
+Every report, figure, paper section, and resume bullet needs to state that distinction plainly.
+
+## Required References Read
+
+LeWM testbed:
+
+```text
+C:\Users\Kevin\projects\LeWM_testbed\README.md
+C:\Users\Kevin\projects\pipeline\kevdozer1.github.io\blog\2026\lewm-finetune\index.html
+C:\Users\Kevin\projects\LeWM_testbed\configs\finetune\fullscale_A_baseline.yaml
+C:\Users\Kevin\projects\LeWM_testbed\configs\finetune\fullscale_B_depth.yaml
+C:\Users\Kevin\projects\LeWM_testbed\configs\finetune\fullscale_D_tracks.yaml
+C:\Users\Kevin\projects\LeWM_testbed\configs\finetune\fullscale_E_depth_tracks.yaml
+```
+
+Confirmed LeWM fullscale training config:
+
+```text
+optimizer: AdamW
+learning rate: 5e-5
+batch size: 16
+auxiliary loss weight: 0.1
+epochs: 20
+precision: bf16-mixed
+metric: held-out next-latent MSE
+```
+
+Confirmed fullscale LeWM CV conditions:
+
+| condition | signal | mechanism |
+|---|---|---|
+| A | baseline | no aux head |
+| B | Video-Depth-Anything depth | aux head predicts 56x56 depth |
+| D | CoTracker3 tracks | aux head predicts 400x2 point displacement |
+| E | depth + tracks | two aux heads, each weight 0.1 |
+
+Pilot-only LeWM conditions F centroid and G shape exist, and masks exist in the pilot HDF5, but the shared 100-episode HDF5 currently contains only `depth`, `tracks`, `track_visibility`, `contact`, pixels, actions, and observations. The first valid 100-episode head-to-head should therefore use A/B/D/E plus BridgeEngine pi0.7 conditions.
 
 ## Frozen Data
 
-Semantic source snapshot:
-
-```text
-snap_2026_05_11_1dde3edf5d
-```
-
-Current benchmark snapshot:
+BridgeEngine semantic snapshot:
 
 ```text
 snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
+
+LeWM manifest:
+
+```text
+D:\bridgedata_v2_subset\manifest_100.json
+```
+
+LeWM HDF5 cache:
+
+```text
+D:\bridgedata_v2_subset\datasets\bridgedata_v2_100ep.h5
+```
+
+The BridgeEngine human-gold snapshot and LeWM `manifest_100.json` contain the same 100 episode IDs exactly. First ten shared IDs:
+
+```text
+episode_000352
+episode_000392
+episode_000425
+episode_001146
+episode_001860
+episode_001972
+episode_003087
+episode_004196
+episode_004417
+episode_004558
+```
+
+## Human Calibration State
 
 Current human calibration:
 
@@ -44,100 +108,115 @@ subtask-boundary temporal IoU mean: 0.683
 derived subgoal frame agreement: 0.347
 ```
 
-This is enough to treat the corrected snapshot as the current best pi0.7-side training cut, but it is not enough to claim that the uncorrected VLM labels are production-grade.
+The corrected snapshot is valid for the pi0.7-side smoke benchmark because Kevin-corrected labels are applied. It does not prove the raw Gemini labels are production-grade.
 
-## Human Reliability Gate Before Final Run
+## Fixed Split
 
-Current state versus target:
-
-Target thresholds before final claim:
-
-| Metric | Target |
-|---|---:|
-| quality within-one agreement | >= 0.85 |
-| keep/reject agreement | >= 0.90 |
-| subtask-boundary temporal IoU | >= 0.70 |
-| subgoal-selection agreement | >= 0.75 |
-
-The current VLM-vs-human reliability misses the quality within-one, boundary-IoU, and subgoal-agreement targets. The applied human-gold snapshot is still valid for the pi0.7-side smoke benchmark because it uses Kevin-corrected labels. Do not treat the raw Gemini labels as final-quality labels without another prompt/rubric iteration or more human correction.
-
-## Perceptive-Signal Gate Before Final Run
-
-The head-to-head must not use synthetic perceptive fallbacks.
-
-Run:
+Generated plan:
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --require-real
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.head_to_head --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --output-dir head_to_head_results\preregistered_100 --sizes 25 50 100 --heldout-count 10 --split-seed 0 --train-seeds 42 137 256
 ```
 
-This must pass before the perceptive comparison is valid. Each perceptive labeler needs one real payload per episode:
+Frozen split files:
 
-- `perceptive_masks`
-- `perceptive_depth`
-- `perceptive_tracks`
+```text
+head_to_head_results/preregistered_100/splits/scale_25_split.json
+head_to_head_results/preregistered_100/splits/scale_50_split.json
+head_to_head_results/preregistered_100/splits/scale_100_split.json
+```
 
-If the command reports synthetic adapters, missing payloads, or missing label rows, fix the extractor path first. Do not run or report the head-to-head on synthetic perceptive labels.
+Held-out count:
+
+```text
+10 episodes
+```
+
+Held-out quality distribution in the generated preregistered split:
+
+```text
+{4: 4, 5: 6}
+```
+
+Training pools are nested across N and quality-stratified from Kevin-calibrated scores.
+
+## Seeds And Scales
+
+Frozen training seeds:
+
+```text
+42, 137, 256
+```
+
+These match Kevin's cached LeWM fullscale A/B/D/E runs. Three seeds is the minimum final run. Five seeds is still better statistically, but it would require two additional LeWM aux-head seeds per CV condition.
+
+Frozen scales:
+
+```text
+25, 50, 100
+```
+
+Do not increase N beyond 100 without downloading more BridgeData and opening a new data/cost gate.
+
+## Conditions
+
+Planned shared-axis figure conditions:
+
+| condition | paradigm | mechanism |
+|---|---|---|
+| `baseline` | shared reference | no aux prediction target and no pi0.7 conditioning |
+| `cv_B_depth_aux` | LeWM perceptive | depth as aux prediction target |
+| `cv_D_tracks_aux` | LeWM perceptive | tracks as aux prediction target |
+| `cv_E_depth_tracks_aux` | LeWM perceptive | depth + tracks as aux prediction targets |
+| `pi07_rich_text` | BridgeEngine pi0.7 | subtask text conditioning |
+| `pi07_rich_text_metadata` | BridgeEngine pi0.7 | subtask text + metadata conditioning |
+| `pi07_full_metadata_subgoal` | BridgeEngine pi0.7 | subtask text + metadata + subgoal-frame conditioning |
+
+Current POC does not include an isolated "subgoal only" family. The subgoal condition is the full pi0.7 stack.
 
 ## Metric
 
 Primary metric:
 
 ```text
-held-out latent MSE from the real LeWM frozen-adapter evaluation
+held-out next-latent MSE
 ```
 
-The held-out split is fixed and disjoint. At 100 episodes, the calibrated split has held-out quality distribution:
+All plotted conditions must be evaluated on the same fixed split. Existing LeWM cached training runs are useful, but `LeWM_testbed/scripts/evaluate_boring3d.py` currently uses a per-seed random 90/10 split, so its outputs cannot be mixed with BridgeEngine fixed-split outputs on one figure without adapting the evaluator.
+
+## Runtime Estimate
+
+Generated estimate:
 
 ```text
-{2: 1, 3: 1, 4: 1, 5: 7}
+LeWM CV fullscale cached N=100 training: 1.660 hours
+LeWM CV all scales from scratch estimate: 2.904 hours
+LeWM CV incremental estimate reusing cached N=100: 1.245 hours
+BridgeEngine pi0.7 3-seed estimate: 0.991 hours
+Total from scratch estimate: 3.896 hours
+Total incremental estimate reusing cached CV N=100: 2.236 hours
 ```
 
-## Seeds
-
-Final run seed set:
+Source:
 
 ```text
-0, 1, 2, 3, 4
+head_to_head_results/preregistered_100/head_to_head_plan.json
+head_to_head_results/preregistered_100/runtime_estimate.md
 ```
 
-Three seeds is the minimum acceptable final run. Five seeds is preferred because the current two-seed deltas are in the single-digit-percent range.
-
-## Families
-
-Primary families:
-
-1. `baseline`: task instruction only.
-2. `pi07_full`: rich text + metadata + subgoal, equivalent to current `rich_text_metadata_subgoal`.
-3. `perceptive_all`: masks + depth + tracks.
-
-Secondary families:
-
-1. `rich_text`
-2. `rich_text_metadata`
-3. `perceptive_masks`
-4. `perceptive_depth`
-5. `perceptive_tracks`
-
-## Injection Decision
-
-Use a unified conditioning interface for the main claim.
-
-Reason: the claim is about signal content, not about each method's native architecture. The base LeWM checkpoint, frozen modules, trainable adapter budget, held-out split, optimizer, and epoch count should stay fixed. The conditioning interface should change only in the information it receives.
-
-Document separately if a secondary "methods as practiced" comparison is ever run with native injection paths.
+The estimate excludes the fixed-split evaluator adaptation and evaluation overhead.
 
 ## Stop Rules
 
 - Do not change the score rubric after this preregistration unless the final result is explicitly marked as post-rubric.
 - Do not change the held-out split after seeing final metrics.
-- Do not report perceptive results if `perceptive_status --require-real` fails.
-- Do not increase N beyond 100 without a new data and cost gate.
+- Do not plot old LeWM CV numbers and BridgeEngine pi0.7 numbers together unless they were evaluated on the same fixed split.
+- Do not report masks, centroids, or shape at N=100 until those payloads are extracted or exported for the shared 100.
 - Do not claim general video or human-motion validation; the current validation class is robot manipulation video.
 
 ## Current Best Pre-Final Result
 
-Human-score and human-boundary corrected 100-episode scale curve, two seeds:
+Human-score and human-boundary corrected BridgeEngine pi0.7 scale curve, two seeds:
 
 | N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|---:|
@@ -145,4 +224,4 @@ Human-score and human-boundary corrected 100-episode scale curve, two seeds:
 | 50 | 0.035255 | 0.035348 | 0.033385 | 0.030203 |
 | 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
-At N=100, `rich_text_metadata_subgoal` is 6.28% lower mean latent MSE than baseline. This is the result to beat or falsify with the perception head-to-head and more seeds.
+At N=100, `rich_text_metadata_subgoal` is 6.28% lower mean latent MSE than the current BridgeEngine baseline. This is not yet the final perceptive-vs-pi0.7 head-to-head result.

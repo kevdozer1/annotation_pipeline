@@ -1,0 +1,242 @@
+{
+  "blocking_notes": [
+    "Do not put old LeWM CV numbers and BridgeEngine pi0.7 numbers on one axis until they have been evaluated on the same fixed split.",
+    "LeWM_testbed/scripts/evaluate_boring3d.py currently creates a per-seed random 90/10 split; it must be adapted or bypassed for the preregistered fixed-split evaluator.",
+    "The 100-episode HDF5 cache contains VDA depth and CoTracker3 tracks. It does not contain the pilot-only mask/centroid/shape fields, so the first shared 100-episode comparison should be A/B/D/E plus pi0.7 families."
+  ],
+  "conditions": [
+    {
+      "cached_at_100": true,
+      "mechanism": "no auxiliary prediction target and no pi0.7 conditioning",
+      "name": "baseline",
+      "notes": "There are two historical baseline implementations; the preregistered run must report which evaluator produced the plotted baseline.",
+      "paradigm": "shared_reference",
+      "source": "LeWM A baseline and BridgeEngine baseline must be evaluated on one fixed split before plotting together"
+    },
+    {
+      "cached_at_100": true,
+      "mechanism": "Video-Depth-Anything depth as an auxiliary prediction target",
+      "name": "cv_B_depth_aux",
+      "notes": "Native LeWM aux-head condition B: predicts 56x56 depth with aux weight 0.1.",
+      "paradigm": "LeWM perceptive",
+      "source": "C:/Users/Kevin/projects/LeWM_testbed/configs/finetune/fullscale_B_depth.yaml"
+    },
+    {
+      "cached_at_100": true,
+      "mechanism": "CoTracker3 point displacements as an auxiliary prediction target",
+      "name": "cv_D_tracks_aux",
+      "notes": "Native LeWM aux-head condition D: predicts 400x2 point-track displacements with aux weight 0.1.",
+      "paradigm": "LeWM perceptive",
+      "source": "C:/Users/Kevin/projects/LeWM_testbed/configs/finetune/fullscale_D_tracks.yaml"
+    },
+    {
+      "cached_at_100": true,
+      "mechanism": "VDA depth and CoTracker3 tracks as auxiliary prediction targets",
+      "name": "cv_E_depth_tracks_aux",
+      "notes": "Native LeWM aux-head condition E: combines depth and track aux heads, each weight 0.1.",
+      "paradigm": "LeWM perceptive",
+      "source": "C:/Users/Kevin/projects/LeWM_testbed/configs/finetune/fullscale_E_depth_tracks.yaml"
+    },
+    {
+      "cached_at_100": false,
+      "mechanism": "subtask text as a conditioning input",
+      "name": "pi07_rich_text",
+      "notes": "Uses Kevin-reviewed boundaries where available and VLM boundaries elsewhere.",
+      "paradigm": "BridgeEngine pi0.7",
+      "source": "bridgeengine.benchmark.train_lewm family rich_text"
+    },
+    {
+      "cached_at_100": false,
+      "mechanism": "subtask text plus speed, quality, mistake, and control metadata as conditioning inputs",
+      "name": "pi07_rich_text_metadata",
+      "notes": "Uses Kevin-calibrated quality scores in the human-gold snapshot.",
+      "paradigm": "BridgeEngine pi0.7",
+      "source": "bridgeengine.benchmark.train_lewm family rich_text_metadata"
+    },
+    {
+      "cached_at_100": false,
+      "mechanism": "subtask text, metadata, and end-of-segment subgoal frame as conditioning inputs",
+      "name": "pi07_full_metadata_subgoal",
+      "notes": "Current POC has the full-stack subgoal family, not an isolated subgoal-only family.",
+      "paradigm": "BridgeEngine pi0.7",
+      "source": "bridgeengine.benchmark.train_lewm family rich_text_metadata_subgoal"
+    }
+  ],
+  "created_by": "bridgeengine.benchmark.head_to_head",
+  "lewm_artifacts": {
+    "cached_run_dirs": [
+      "D:\\lewm_runs\\boring3d_fullscale\\20260407_180433",
+      "D:\\lewm_runs\\boring3d_fullscale\\20260411_133458"
+    ],
+    "h5": "D:\\bridgedata_v2_subset\\datasets\\bridgedata_v2_100ep.h5",
+    "h5_exists": true,
+    "manifest": "D:\\bridgedata_v2_subset\\manifest_100.json"
+  },
+  "mechanism_disclosure": "LeWM CV signals are native auxiliary prediction targets. BridgeEngine pi0.7 signals are conditioning inputs. The planned plot is an annotation-strategy comparison, not a pure signal-content comparison.",
+  "metric": "held-out next-latent MSE",
+  "runtime_estimate": {
+    "bridgeengine_pi07": {
+      "estimated_hours": 0.991,
+      "estimated_seconds": 3568.491,
+      "observed_hours": 0.661,
+      "observed_rows_found": 24,
+      "observed_seconds": 2378.994,
+      "observed_seed_count": 2,
+      "per_size_family_mean_seconds": [
+        {
+          "family": "baseline",
+          "scale_n": 25,
+          "seconds": 42.003
+        },
+        {
+          "family": "rich_text",
+          "scale_n": 25,
+          "seconds": 25.037
+        },
+        {
+          "family": "rich_text_metadata",
+          "scale_n": 25,
+          "seconds": 25.741
+        },
+        {
+          "family": "rich_text_metadata_subgoal",
+          "scale_n": 25,
+          "seconds": 29.552
+        },
+        {
+          "family": "baseline",
+          "scale_n": 50,
+          "seconds": 73.91
+        },
+        {
+          "family": "rich_text",
+          "scale_n": 50,
+          "seconds": 76.203
+        },
+        {
+          "family": "rich_text_metadata",
+          "scale_n": 50,
+          "seconds": 74.306
+        },
+        {
+          "family": "rich_text_metadata_subgoal",
+          "scale_n": 50,
+          "seconds": 78.576
+        },
+        {
+          "family": "baseline",
+          "scale_n": 100,
+          "seconds": 188.859
+        },
+        {
+          "family": "rich_text",
+          "scale_n": 100,
+          "seconds": 187.746
+        },
+        {
+          "family": "rich_text_metadata",
+          "scale_n": 100,
+          "seconds": 188.534
+        },
+        {
+          "family": "rich_text_metadata_subgoal",
+          "scale_n": 100,
+          "seconds": 199.03
+        }
+      ],
+      "source_csv": "scale_results\\human_gold_labels_100\\scale_curve_results.csv"
+    },
+    "estimate_notes": [
+      "LeWM CV estimates scale cached N=100 elapsed times linearly by N.",
+      "BridgeEngine pi0.7 estimate scales the existing human-gold 2-seed scale curve to the requested seed count.",
+      "Evaluation and fixed-split adapter development time are not included."
+    ],
+    "lewm_cv_aux": {
+      "average_100_seconds_by_condition": {
+        "A": 415.667,
+        "B": 478.833,
+        "D": 512.833,
+        "E": 584.3
+      },
+      "cached_100_hours": 1.66,
+      "cached_100_seconds": 5974.9,
+      "cached_rows_found": 12,
+      "conditions": [
+        "A",
+        "B",
+        "D",
+        "E"
+      ],
+      "estimated_all_scales_from_scratch_hours": 2.904,
+      "estimated_all_scales_from_scratch_seconds": 10456.075,
+      "estimated_incremental_reusing_cached_100_hours": 1.245,
+      "estimated_incremental_reusing_cached_100_seconds": 4481.175
+    },
+    "requested_sizes": [
+      25,
+      50,
+      100
+    ],
+    "requested_train_seeds": [
+      42,
+      137,
+      256
+    ],
+    "total_from_scratch_hours": 3.896,
+    "total_from_scratch_seconds": 14024.566,
+    "total_incremental_reusing_cached_cv_100_hours": 2.236,
+    "total_incremental_reusing_cached_cv_100_seconds": 8049.666
+  },
+  "scale_plan_file": "head_to_head_results\\preregistered_100\\scale_curve_plan.json",
+  "shared_episode_check": {
+    "first_ten_episode_ids": [
+      "episode_000352",
+      "episode_000392",
+      "episode_000425",
+      "episode_001146",
+      "episode_001860",
+      "episode_001972",
+      "episode_003087",
+      "episode_004196",
+      "episode_004417",
+      "episode_004558"
+    ],
+    "lewm_manifest_episode_count": 100,
+    "lewm_only": [],
+    "same_episode_set": true,
+    "snapshot_episode_count": 100,
+    "snapshot_only": []
+  },
+  "sizes": [
+    25,
+    50,
+    100
+  ],
+  "snapshot_id": "snap_2026_05_11_1dde3edf5d_human_gold_labels",
+  "split_seed": 0,
+  "stop_rule": "This command is planning-only. Launch the unified grid only after Kevin approves the seed count and the fixed-split evaluator path.",
+  "train_seeds": [
+    42,
+    137,
+    256
+  ],
+  "training_config_reference": {
+    "bridgeengine_pi07_current": {
+      "batch_size": 12,
+      "epochs": 8,
+      "lr": "3e-4 by default",
+      "note": "This is the current pi0.7-conditioning adapter path. It is not the same mechanism as the LeWM aux-head CV conditions.",
+      "optimizer": "AdamW",
+      "source": "bridgeengine.benchmark.train_lewm"
+    },
+    "lewm_aux_native": {
+      "aux_weight": 0.1,
+      "batch_size": 16,
+      "epochs": 20,
+      "lr": 5e-05,
+      "optimizer": "AdamW",
+      "precision": "bf16-mixed",
+      "source": "LeWM_testbed configs/finetune/fullscale_*.yaml"
+    }
+  }
+}

@@ -6,7 +6,7 @@ Draft date: 2026-06-05
 
 ## Abstract
 
-Robot foundation models are increasingly bottlenecked by data quality, annotation structure, and the ability to turn heterogeneous demonstrations into reliable training context. We present BridgeEngine, a local proof-of-concept data engine for converting BridgeData-style robot episodes into queryable, quality-gated, pi0.7-inspired conditioning artifacts. BridgeEngine ingests robot trajectories and videos into deterministic Parquet snapshots, generates structured semantic labels with hosted vision-language models, preserves raw label provenance, supports human score calibration through a dedicated review GUI, and evaluates label value with a real LeWorldModel frozen-adapter latent-MSE benchmark. On a 100-episode local BridgeData subset labeled with Gemini 2.5 Flash, Kevin reviewed all 100 clips and changed 58 curation scores, correcting the auto-label distribution from `{2: 5, 4: 9, 5: 86}` to `{2: 6, 3: 15, 4: 30, 5: 49}`. After applying this score-only human calibration, the metadata+subgoal conditioning family beats task-only baseline across N = 25, 50, and 100, including a 7.61% lower mean latent MSE at N = 100. The result remains smoke-scale: only two seeds are used, only quality scores were human-calibrated, and subtask boundaries/subgoal selections were not yet human-verified. BridgeEngine should therefore be interpreted as a working research scaffold for semantic robot-data curation and label-value evaluation, not as final evidence that pi0.7-style annotations reliably improve robot policy learning.
+Robot foundation models are increasingly bottlenecked by data quality, annotation structure, and the ability to turn heterogeneous demonstrations into reliable training context. We present BridgeEngine, a local proof-of-concept data engine for converting BridgeData-style robot episodes into queryable, quality-gated, pi0.7-inspired conditioning artifacts. BridgeEngine ingests robot trajectories and videos into deterministic Parquet snapshots, generates structured semantic labels with hosted vision-language models, preserves raw label provenance, supports human calibration through a dedicated review GUI, and evaluates label value with a real LeWorldModel frozen-adapter latent-MSE benchmark. On a 100-episode local BridgeData subset labeled with Gemini 2.5 Flash, Kevin reviewed all 100 clips and changed 58 curation scores, correcting the auto-label distribution from `{2: 5, 4: 9, 5: 86}` to `{2: 6, 3: 15, 4: 30, 5: 49}`; he also reviewed subtask boundaries on a 50-episode subset and BridgeEngine derived subgoal frames from those boundaries. After applying this human calibration, the metadata+subgoal conditioning family beats task-only baseline across N = 25, 50, and 100, including a 6.28% lower mean latent MSE at N = 100. The result remains smoke-scale: only two seeds are used and only half of the boundaries were manually reviewed. BridgeEngine should therefore be interpreted as a working research scaffold for semantic robot-data curation and label-value evaluation, not as final evidence that pi0.7-style annotations reliably improve robot policy learning.
 
 ## 1. Introduction
 
@@ -299,10 +299,10 @@ Score distributions:
 The calibrated scores were applied to a cloned snapshot, not the original Gemini snapshot:
 
 ```text
-snap_2026_05_11_1dde3edf5d_human_calibrated
+snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
-This makes the benchmark use Kevin's score thresholding while preserving the original Gemini labels for comparison.
+This makes the benchmark use Kevin's score thresholding and reviewed boundary-derived subgoals where available, while preserving the original Gemini labels for comparison.
 
 ### 5.5 Conditioning Families
 
@@ -326,19 +326,19 @@ The current scale curve uses:
 - CUDA
 - held-out latent MSE as the metric
 
-After score calibration, the held-out split contains mixed-quality episodes:
+After human calibration, the held-out split for the current pi0.7 scale curve contains mixed-quality episodes:
 
 ```text
 {2: 1, 3: 1, 4: 1, 5: 7}
 ```
 
-The train splits are also quality-stratified. This is a material improvement over the Gemini-only curve, where the held-out split contained only `5/5` episodes.
+The train splits are also quality-stratified. The separately generated head-to-head preregistration freezes a new shared split under `head_to_head_results/preregistered_100/splits`, with held-out quality distribution `{4: 4, 5: 6}` for the cross-paradigm comparison.
 
 ## 6. Results
 
 ### 6.1 Quality Gate
 
-The human-calibrated 100-episode snapshot passes the quality gate:
+The human-gold-label 100-episode snapshot passes the quality gate:
 
 ```text
 Quality gate: PASS
@@ -348,37 +348,49 @@ Quality counts: {2: 6, 3: 15, 4: 30, 5: 49}
 
 The pass confirms that the calibrated labels are not obviously collapsed, repeated, contradictory, or ungrounded under the current heuristic gate. It does not establish boundary or subgoal reliability, because those fields were not reviewed.
 
-### 6.2 Scale-Curve Results
+### 6.2 Pi0.7 Scale-Curve Results
 
-Mean held-out latent MSE after score-only human calibration:
+Mean held-out latent MSE after score and boundary-derived subgoal calibration:
 
 | N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|---:|
-| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
-| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
-| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
+| 25 | 0.038967 | 0.038332 | 0.036301 | 0.034922 |
+| 50 | 0.035255 | 0.035348 | 0.033385 | 0.030203 |
+| 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
 Delta versus baseline:
 
 | N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|
-| 25 | -2.38% | -5.70% | -9.64% |
-| 50 | -2.58% | -8.79% | -11.39% |
-| 100 | +2.67% | +1.37% | -7.61% |
+| 25 | -1.63% | -6.84% | -10.38% |
+| 50 | +0.26% | -5.30% | -14.33% |
+| 100 | +0.73% | +0.04% | -6.28% |
 
-Lower is better. The metadata+subgoal family beats baseline at all three sizes. At N = 100, the best mean is `rich_text_metadata_subgoal`, with 0.020807 latent MSE versus 0.022522 for baseline. Text-only and metadata-only improve at N = 25 and N = 50, but regress slightly at N = 100.
+Lower is better. The metadata+subgoal family beats baseline at all three sizes. At N = 100, the best mean is `rich_text_metadata_subgoal`, with 0.020468 latent MSE versus 0.021839 for baseline. Text-only and metadata-only do not hold a stable advantage at N = 100.
 
 ### 6.3 Interpretation
 
-The result is stronger than the Gemini-only curve because score calibration corrected the top-heavy auto distribution and produced a mixed-quality held-out split. It is also stronger than the earlier 13-episode OpenAI smoke result, which did not show a metadata win. However, the current experiment still has three important weaknesses:
+The result is stronger than the Gemini-only curve because score calibration corrected the top-heavy auto distribution and boundary-derived subgoals improved the strongest family. It is also stronger than the earlier 13-episode OpenAI smoke result, which did not show a metadata win. However, the current experiment still has three important weaknesses:
 
 1. only two seeds per family
-2. only quality scores were human-calibrated; subtask boundaries and subgoal selections were not reviewed
+2. only 50 of 100 subtask boundaries were manually reviewed
 3. the benchmark is a LeWM frozen-adapter latent-MSE probe, not full robot policy training
 
 Therefore, the correct claim is:
 
-> BridgeEngine produces a working pi0.7-style annotation and curation pipeline, and a score-calibrated 100-episode scale probe shows metadata+subgoal conditioning beating baseline in mean latent MSE. The result is not yet a robust scientific conclusion.
+> BridgeEngine produces a working pi0.7-style annotation and curation pipeline, and a human-calibrated 100-episode scale probe shows metadata+subgoal conditioning beating baseline in mean latent MSE. The result is not yet a robust scientific conclusion.
+
+### 6.4 Preregistered Perceptive Head-To-Head
+
+The next controlled comparison is now preregistered against Kevin's prior LeWM perceptive-signal experiment. The LeWM conditions use CV signals as native auxiliary prediction targets: A baseline, B depth, D tracks, and E depth+tracks. BridgeEngine's pi0.7 families use subtask text, metadata, and subgoal frames as conditioning inputs. This makes the comparison annotation-strategy-level, not pure signal-content-level.
+
+The BridgeEngine human-gold 100 episodes match `D:\bridgedata_v2_subset\manifest_100.json` exactly. The fixed splits, runtime estimate, and mechanism disclosure are written under:
+
+```text
+head_to_head_results/preregistered_100/
+```
+
+The head-to-head is not complete yet because the cached LeWM evaluator must be adapted from a per-seed random 90/10 split to the preregistered fixed split before plotting one shared-axis result.
 
 ## 7. Ablations And Diagnostics
 
@@ -471,10 +483,10 @@ Episode pass rate: 1.000
 Quality counts: {2: 5, 4: 9, 5: 86}
 ```
 
-For the score-calibrated benchmark snapshot:
+For the human-gold benchmark snapshot:
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated
+.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
 Expected current output:
@@ -508,28 +520,37 @@ Estimated cost per episode: $0.011886
   --gold-file bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json
 ```
 
-Current score-only calibration report:
+Current calibration report:
 
 ```text
 reviewed episodes: 100 / 100
 quality exact agreement: 0.42
 quality within-one agreement: 0.77
 keep/reject agreement: 0.76
-subtask-boundary IoU: n/a, not reviewed
-subgoal agreement: n/a, not reviewed
+subtask-boundary temporal IoU mean: 0.683
+derived subgoal frame agreement: 0.347
 ```
 
 ### 11.5 Scale-Curve Result Files
 
 ```text
-scale_results/human_calibrated_100/scale_curve_results.csv
-scale_results/human_calibrated_100/scale_curve_summary.md
-figures/scale_curve_human_calibrated_100.png
+scale_results/human_gold_labels_100/scale_curve_results.csv
+scale_results/human_gold_labels_100/scale_curve_summary.md
+figures/scale_curve_human_gold_labels_100.png
+```
+
+### 11.6 Head-To-Head Preregistration Files
+
+```text
+HEAD_TO_HEAD_PREREGISTRATION.md
+head_to_head_results/preregistered_100/head_to_head_plan.json
+head_to_head_results/preregistered_100/runtime_estimate.md
+head_to_head_results/preregistered_100/splits/
 ```
 
 ## 12. Conclusion
 
-BridgeEngine demonstrates that a small local robot-data pipeline can go beyond raw storage and produce structured, quality-gated, pi0.7-style conditioning artifacts with provenance, human score calibration, queryability, and a real model-side label-value benchmark. The current score-calibrated 100-episode scale curve is positive for metadata+subgoal conditioning, but not definitive. The immediate next step is not more engineering breadth; it is measuring boundary and subgoal reliability, adding more seeds, and scaling beyond 100 episodes only after a fresh cost gate.
+BridgeEngine demonstrates that a small local robot-data pipeline can go beyond raw storage and produce structured, quality-gated, pi0.7-style conditioning artifacts with provenance, human calibration, queryability, and a real model-side label-value benchmark. The current human-calibrated 100-episode scale curve is positive for metadata+subgoal conditioning, but not definitive. The immediate next step is not more engineering breadth; it is adapting the cached LeWM aux-head evaluator to the fixed shared split and running the preregistered perceptive-vs-pi0.7 head-to-head.
 
 ## Appendix A. Current Artifact Inventory
 
@@ -539,8 +560,10 @@ Key files:
 BRIDGEENGINE_HANDOFF_ALMANAC.md
 VALUE_REPORT.md
 FINAL_STATE_ASSESSMENT.md
-scale_results/human_calibrated_100/scale_curve_summary.md
-figures/scale_curve_human_calibrated_100.png
+scale_results/human_gold_labels_100/scale_curve_summary.md
+figures/scale_curve_human_gold_labels_100.png
+head_to_head_results/preregistered_100/head_to_head_plan.json
+head_to_head_results/preregistered_100/runtime_estimate.md
 bridgeengine/viewer/app.py
 bridgeengine/review_gui.py
 bridgeengine/apply_gold.py
@@ -554,7 +577,7 @@ bridgeengine/benchmark/
 Key snapshot:
 
 ```text
-snap_2026_05_11_1dde3edf5d_human_calibrated
+snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
 Key claim status:
@@ -566,8 +589,9 @@ Key claim status:
 | Quality gate catches obvious scaffold-label failures | Supported |
 | Human calibration GUI exists | Supported |
 | Human score calibration is measured | Supported |
-| Human boundary/subgoal reliability is measured | Not yet |
+| Human boundary/subgoal reliability is measured | Partially measured on reviewed subset |
 | Metadata+subgoal conditioning beats baseline at 100 episodes | Supported as smoke-scale trend |
+| Perceptive-vs-pi0.7 head-to-head is preregistered | Supported |
 | Richer conditioning robustly improves robot learning | Not proven |
 | Public reusable toolkit is ready | Not yet |
 
