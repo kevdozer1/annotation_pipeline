@@ -25,7 +25,7 @@
 | Gold-set reliability scaffold | PARTIAL | `bridgeengine.goldset init/report` exists and tests pass. Kevin filled score labels for 100/100 clips and boundary timestamps for the 50-episode subset. | Score calibration is real. Boundary/subgoal reliability is now measured on the subset, but raw Gemini does not hit the preregistered reliability thresholds. |
 | Perception comparison labelers | PARTIAL/BROKEN IN THIS VENV | `system_check` found local artifacts/checkpoints, but Python imports for `torch`, `sam2`, `video_depth_anything`, and `cotracker` are missing. | The wrappers exist, but this environment cannot run live perception extraction right now. This is not blocking the pi0.7-style main pipeline. |
 | Benchmark runner | WORKS AS SMOKE-SCALE SCIENCE | `bridgeengine.benchmark.run_grid` and `bridgeengine.benchmark.scale_curve` run real LeWM frozen-adapter train/eval paths; the human-calibrated 100 scale curve writes CSV/plot/splits. | This is a real learned positive smoke result, but still only a small conditioning adapter with 100 local episodes and two seeds, not a robust robotics conclusion. |
-| Head-to-head planner | WORKS AS PREREGISTRATION | `bridgeengine.benchmark.head_to_head` verifies BridgeEngine's 100 episodes match LeWM's `manifest_100.json`, writes fixed split files, and estimates runtime. | The final perceptive-vs-pi0.7 run is not launched yet because LeWM's cached evaluator must be adapted to the shared fixed split. |
+| Head-to-head handoff | WORKS AS RUNNER | `bridgeengine.benchmark.head_to_head` verifies the shared 100; `bridgeengine.benchmark.head_to_head_runner` prepares split HDF5 files and LeWM configs; `bridgeengine.benchmark.lewm_fixed_eval` evaluates CV aux checkpoints on explicit held-out HDF5. | The final perceptive-vs-pi0.7 run is not launched yet because it is a multi-hour grid Kevin should run deliberately. |
 
 ### 2. Mock Quickstart End-to-End
 
@@ -143,7 +143,7 @@ This is not proof that pi0.7-style labels help in general. It is a small, two-se
 ### Minimal Steps To Make The Number Stronger
 
 1. Run at least 3-5 seeds per family on the human-gold-label snapshot.
-2. Adapt or wrap the cached LeWM A/B/D/E aux-head evaluator to the shared fixed split, then run the preregistered pi0.7-vs-perceptive head-to-head.
+2. Run the handed-off fixed-split LeWM A/B/D/E aux-head grid and aggregate it with the pi0.7 scale curve.
 3. Download or expose more BridgeData V2 episodes and run N > 100 only after a fresh cost gate.
 4. Replace the hashed text adapter with the actual language-conditioning path used by the downstream VLA or world-model stack, if available.
 
@@ -177,7 +177,7 @@ Unproven right now:
 
 ### 7. Strongest Fair Case Against Value
 
-The harsh case is that BridgeEngine's positive 100-episode trend is still fragile. The label quality gate is heuristic and can pass labels that still contain semantic errors. Kevin calibrated scores and reviewed a boundary subset, but raw Gemini reliability misses the preregistered targets. The mock backend gives generic labels, and the real useful path depends on paid hosted VLM calls. Forge already covers much of the general robotics data-toolkit surface, including conversion, inspection, quality scoring, filtering, segmentation, visualization, and dataset discovery. BridgeEngine does not yet export standard training formats, the perceptive head-to-head still needs a fixed-split LeWM evaluator, and its LeWM benchmark is a frozen-adapter smoke test rather than a full downstream VLA training run. If someone asks "does this make robot models better?", the honest answer is "the corrected 100-episode smoke result is positive, but not proven beyond this setup."
+The harsh case is that BridgeEngine's positive 100-episode trend is still fragile. The label quality gate is heuristic and can pass labels that still contain semantic errors. Kevin calibrated scores and reviewed a boundary subset, but raw Gemini reliability misses the preregistered targets. The mock backend gives generic labels, and the real useful path depends on paid hosted VLM calls. Forge already covers much of the general robotics data-toolkit surface, including conversion, inspection, quality scoring, filtering, segmentation, visualization, and dataset discovery. BridgeEngine does not yet export standard training formats, the perceptive head-to-head still has not been run, and its LeWM benchmark is a frozen-adapter smoke test rather than a full downstream VLA training run. If someone asks "does this make robot models better?", the honest answer is "the corrected 100-episode smoke result is positive, but not proven beyond this setup."
 
 ### Honest Rebuttal
 
@@ -196,4 +196,4 @@ Either implement LeRobot/RLDS export or stop implying this is a general robotics
 
 ## Final Assessment
 
-The project is worth shipping as a public POC if the README and demo are honest: "This is a pi0.7-style annotation and curation layer for BridgeData with quality-gated benchmark plumbing, and the first human-corrected 100-episode scale curve shows a positive but unproven metadata+subgoal result." It is not worth shipping as a settled scientific result or as a general robotics data platform. The next serious milestone is adapting the cached LeWM aux-head evaluator to the shared fixed split, then running the 3-seed annotation-strategy head-to-head.
+The project is worth shipping as a public POC if the README and demo are honest: "This is a pi0.7-style annotation and curation layer for BridgeData with quality-gated benchmark plumbing, and the first human-corrected 100-episode scale curve shows a positive but unproven metadata+subgoal result." It is not worth shipping as a settled scientific result or as a general robotics data platform. The next serious milestone is running the handed-off 3-seed annotation-strategy head-to-head and aggregating one shared-axis result.

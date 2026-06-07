@@ -110,7 +110,7 @@ Interpretation: after score and boundary/subgoal correction, the metadata+subgoa
 - Only 50 of 100 episodes have explicit human-reviewed subtask boundaries; the remaining 50 use auto boundaries in the applied snapshot.
 - The scale curve has only two seeds; the pre-registered head-to-head is fixed to seeds `42, 137, 256`.
 - The perceptive-vs-pi0.7 head-to-head is now aligned to Kevin's cached LeWM aux-head fullscale runs, not to perceptive rows inside BridgeEngine's `labels.parquet`.
-- The current methodological blocker is the evaluator: LeWM's cached fullscale runs are real, but `LeWM_testbed/scripts/evaluate_boring3d.py` uses a per-seed random 90/10 split. The head-to-head requires a fixed shared split generated under `head_to_head_results/preregistered_100/splits`.
+- The current handoff path does not reuse the cached random-split checkpoints. It prepares fixed-split HDF5 files, retrains A/B/D/E from the pretrained LeWM checkpoint, and evaluates on the explicit held-out HDF5 via `bridgeengine.benchmark.lewm_fixed_eval`.
 - The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus.
 - Standard RLDS/LeRobot export is not implemented.
 - This should be framed as a calibrated smoke result, not a settled claim that pi0.7-style conditioning improves robot learning.
@@ -132,4 +132,16 @@ Total from scratch estimate: 3.896 hours
 Total incremental estimate reusing cached CV N=100: 2.236 hours
 ```
 
-Next critical path: adapt or wrap the LeWM evaluator so cached A/B/D/E checkpoints and BridgeEngine pi0.7 checkpoints are evaluated on the same fixed held-out episodes before plotting one shared-axis result.
+Next critical path: run the handed-off grid and aggregate the CV-aux fixed-eval JSON files with the BridgeEngine pi0.7 scale-curve CSV into one shared-axis result figure.
+
+The current runnable handoff command is:
+
+```powershell
+.\scripts\run_head_to_head_100.ps1
+```
+
+To inspect preparation without launching long training:
+
+```powershell
+.\scripts\run_head_to_head_100.ps1 -PrepareOnly
+```

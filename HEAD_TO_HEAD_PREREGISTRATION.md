@@ -182,11 +182,29 @@ Primary metric:
 held-out next-latent MSE
 ```
 
-All plotted conditions must be evaluated on the same fixed split. Existing LeWM cached training runs are useful, but `LeWM_testbed/scripts/evaluate_boring3d.py` currently uses a per-seed random 90/10 split, so its outputs cannot be mixed with BridgeEngine fixed-split outputs on one figure without adapting the evaluator.
+All plotted conditions must be evaluated on the same fixed split. Existing LeWM cached training runs are useful as runtime anchors, but their checkpoints were trained/evaluated with per-seed random 90/10 splits, so their outputs cannot be mixed with BridgeEngine fixed-split outputs on one figure. The handoff runner retrains from the pretrained LeWM checkpoint on split-specific HDF5 datasets and evaluates with `bridgeengine.benchmark.lewm_fixed_eval`.
+
+## Runnable Handoff
+
+Full 100-episode handoff command:
+
+```powershell
+.\scripts\run_head_to_head_100.ps1
+```
+
+Prepare-only smoke/inspection command:
+
+```powershell
+.\scripts\run_head_to_head_100.ps1 -PrepareOnly
+```
+
+The handoff script verifies signal files, creates split-specific train and held-out HDF5 files, writes LeWM configs, retrains CV aux conditions from the pretrained LeWM checkpoint, evaluates on the explicit fixed held-out HDF5, then runs the BridgeEngine pi0.7 scale curve with matched `20` epochs, batch `16`, and lr `5e-5`.
+
+Do not evaluate the old cached random-split LeWM checkpoints on the fixed held-out set. They may overlap the preregistered held-out episodes and are kept only as runtime anchors.
 
 ## Runtime Estimate
 
-Generated estimate:
+Generated estimate, from cached historical runtime logs and the current pi0.7 run timings:
 
 ```text
 LeWM CV fullscale cached N=100 training: 1.660 hours
@@ -204,7 +222,7 @@ head_to_head_results/preregistered_100/head_to_head_plan.json
 head_to_head_results/preregistered_100/runtime_estimate.md
 ```
 
-The estimate excludes the fixed-split evaluator adaptation and evaluation overhead.
+The fixed-split evaluator and handoff runner now exist. The estimate still excludes small evaluation overhead and any retry time from CUDA or dependency failures.
 
 ## Stop Rules
 

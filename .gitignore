@@ -30,3 +30,5 @@ streamlit.live.out.log
 streamlit.live.err.log
 streamlit.*.log
 review_gui.*.log
+head_to_head_results/run_*/
+head_to_head_results/smoke_*/

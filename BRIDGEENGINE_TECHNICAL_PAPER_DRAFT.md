@@ -390,7 +390,7 @@ The BridgeEngine human-gold 100 episodes match `D:\bridgedata_v2_subset\manifest
 head_to_head_results/preregistered_100/
 ```
 
-The head-to-head is not complete yet because the cached LeWM evaluator must be adapted from a per-seed random 90/10 split to the preregistered fixed split before plotting one shared-axis result.
+The head-to-head is not complete yet because the multi-hour handed-off grid has not been run. BridgeEngine now includes a fixed-heldout LeWM evaluator, but the old cached random-split checkpoints still must not be plotted against the preregistered split.
 
 ## 7. Ablations And Diagnostics
 
@@ -550,7 +550,7 @@ head_to_head_results/preregistered_100/splits/
 
 ## 12. Conclusion
 
-BridgeEngine demonstrates that a small local robot-data pipeline can go beyond raw storage and produce structured, quality-gated, pi0.7-style conditioning artifacts with provenance, human calibration, queryability, and a real model-side label-value benchmark. The current human-calibrated 100-episode scale curve is positive for metadata+subgoal conditioning, but not definitive. The immediate next step is not more engineering breadth; it is adapting the cached LeWM aux-head evaluator to the fixed shared split and running the preregistered perceptive-vs-pi0.7 head-to-head.
+BridgeEngine demonstrates that a small local robot-data pipeline can go beyond raw storage and produce structured, quality-gated, pi0.7-style conditioning artifacts with provenance, human calibration, queryability, and a real model-side label-value benchmark. The current human-calibrated 100-episode scale curve is positive for metadata+subgoal conditioning, but not definitive. The immediate next step is not more engineering breadth; it is running the handed-off fixed-split perceptive-vs-pi0.7 head-to-head and aggregating one shared-axis result.
 
 ## Appendix A. Current Artifact Inventory
 

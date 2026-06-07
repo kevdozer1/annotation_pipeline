@@ -9,6 +9,7 @@ from bridgeengine.benchmark.head_to_head import (
     compare_snapshot_to_lewm_manifest,
     estimate_runtime,
 )
+from bridgeengine.benchmark.head_to_head_runner import export_h5_subset, verify_signal_files
 from bridgeengine.ingest import ingest_bridge_v2
 
 
@@ -116,3 +117,56 @@ def test_runtime_estimate_uses_cached_lewm_and_bridgeengine_csv(tmp_path: Path) 
     assert estimate["lewm_cv_aux"]["cached_100_seconds"] == 1000.0
     assert estimate["bridgeengine_pi07"]["observed_seed_count"] == 2
     assert estimate["bridgeengine_pi07"]["estimated_seconds"] == 18.0
+
+
+def test_export_h5_subset_keeps_selected_episode_lengths(tmp_path: Path) -> None:
+    import h5py
+    import numpy as np
+
+    source = tmp_path / "source.h5"
+    with h5py.File(source, "w") as h:
+        h.create_dataset("ep_len", data=np.asarray([2, 3, 1], dtype=np.int64))
+        h.create_dataset("ep_offset", data=np.asarray([0, 2, 5], dtype=np.int64))
+        h.create_dataset("pixels", data=np.arange(6 * 2).reshape(6, 2))
+        h.create_dataset("action", data=np.arange(6 * 1).reshape(6, 1))
+        h.attrs["dataset_name"] = "source"
+    output = tmp_path / "datasets" / "subset.h5"
+
+    export_h5_subset(
+        source,
+        ["episode_000001", "episode_000002", "episode_000003"],
+        ["episode_000002", "episode_000003"],
+        "subset",
+        output,
+    )
+
+    with h5py.File(output, "r") as h:
+        assert h.attrs["dataset_name"] == "subset"
+        assert h.attrs["n_episodes"] == 2
+        assert h.attrs["total_frames"] == 4
+        assert h["ep_len"][:].tolist() == [3, 1]
+        assert h["ep_offset"][:].tolist() == [0, 3]
+        assert h["pixels"].shape[0] == 4
+
+
+def test_verify_signal_files_reports_missing(tmp_path: Path) -> None:
+    root = tmp_path / "data"
+    ep_dir = root / "episodes" / "episode_000001"
+    ep_dir.mkdir(parents=True)
+    for name in ["frames.npy", "actions.npy", "states.npy", "video.mp4"]:
+        (ep_dir / name).write_bytes(b"x")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps([{"episode_index": 1}]), encoding="utf-8")
+    plan = tmp_path / "plan"
+    splits = plan / "splits"
+    splits.mkdir(parents=True)
+    (splits / "scale_1_split.json").write_text(
+        json.dumps({"train_episode_ids": ["episode_000001"], "heldout_episode_ids": []}),
+        encoding="utf-8",
+    )
+
+    report = verify_signal_files(manifest, root, plan)
+
+    assert report["episode_ok_count"] == 0
+    assert report["episode_missing_count"] == 1
+    assert report["missing"][0]["missing"] == ["depth.npy", "tracks.npy", "visibility.npy"]
