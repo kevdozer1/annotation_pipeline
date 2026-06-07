@@ -7,9 +7,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+from PIL import Image
 
 from bridgeengine.calibration import default_gold_path, review_summary
+from bridgeengine.derive_subgoals import DERIVED_SUBGOAL_SOURCE
 from bridgeengine.goldset import reliability_report
 from bridgeengine.paths import data_root as resolve_data_root
 
@@ -42,20 +45,38 @@ def apply_gold_scores_to_snapshot(
     gold_scores = _gold_scores(gold)
     if not gold_scores:
         raise ValueError(f"Gold file has no reviewed curation scores: {gold_path}")
+    gold_entries = _gold_entries(gold)
 
     labels_path = target_path / "labels.parquet"
+    episodes = pd.read_parquet(target_path / "episodes.parquet")
+    episode_rows = {str(row["episode_id"]): row for _, row in episodes.iterrows()}
     labels = pd.read_parquet(labels_path)
     rows = labels.to_dict("records")
     changed = []
+    boundary_updates = []
+    subgoal_updates = []
     for row in rows:
         row["snapshot_id"] = target_snapshot
         if row.get("label_payload_path"):
-            row["label_payload_path"] = _copy_or_rewrite_path(row["label_payload_path"], source_snapshot, target_snapshot)
+            row["label_payload_path"] = _copy_or_rewrite_path(row["label_payload_path"], root, target_snapshot)
         if row.get("subgoal_image_path"):
-            row["subgoal_image_path"] = _rewrite_existing_snapshot_path(row["subgoal_image_path"], source_snapshot, target_snapshot)
-        if row.get("labeler_name") != "episode_metadata":
-            continue
+            row["subgoal_image_path"] = _copy_or_rewrite_path(row["subgoal_image_path"], root, target_snapshot)
+        labeler_name = str(row.get("labeler_name"))
         episode_id = str(row.get("episode_id"))
+        gold_entry = gold_entries.get(episode_id)
+        if labeler_name == "subtask_segmenter" and gold_entry:
+            payload_path = Path(str(row.get("label_payload_path") or ""))
+            update = _apply_gold_subtasks(payload_path, gold_entry, row)
+            if update:
+                boundary_updates.append({"episode_id": episode_id, **update})
+            continue
+        if labeler_name == "subgoal_images" and gold_entry:
+            update = _apply_gold_subgoal(row, gold_entry, episode_rows.get(episode_id), target_path)
+            if update:
+                subgoal_updates.append({"episode_id": episode_id, **update})
+            continue
+        if labeler_name != "episode_metadata":
+            continue
         if episode_id not in gold_scores:
             continue
         metadata = _parse_json(row.get("metadata_payload_json"))
@@ -128,6 +149,10 @@ def apply_gold_scores_to_snapshot(
         "human_quality_counts": _counts(summary.get("gold_score")),
         "changed_score_count": int(sum(bool(item["changed"]) for item in changed)),
         "changed_scores": changed,
+        "applied_boundary_episode_count": len(boundary_updates),
+        "applied_boundary_updates": boundary_updates,
+        "applied_subgoal_count": len(subgoal_updates),
+        "applied_subgoal_updates": subgoal_updates,
         "reliability": reliability,
     }
     _write_json(target_path / "human_calibration_report.json", report)
@@ -148,9 +173,151 @@ def _gold_scores(gold: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return result
 
 
-def _copy_or_rewrite_path(path_value: Any, source_snapshot: str, target_snapshot: str) -> str:
+def _gold_entries(gold: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {str(entry.get("episode_id")): entry for entry in gold.get("episodes", []) if entry.get("episode_id") is not None}
+
+
+def _apply_gold_subtasks(payload_path: Path, gold_entry: dict[str, Any], row: dict[str, Any]) -> dict[str, Any] | None:
+    if not payload_path.exists():
+        return None
+    payload = _read_json(payload_path)
+    auto_segments = payload.get("segments") or gold_entry.get("auto", {}).get("subtasks", [])
+    segments = _human_segments(gold_entry, auto_segments)
+    if not segments:
+        return None
+    payload["segments"] = segments
+    payload["boundary_source"] = "human_gold_boundary_review"
+    payload["human_gold_applied"] = True
+    payload["human_gold_source"] = str(gold_entry.get("episode_id"))
+    payload["prompt_components"] = [
+        f"Task: {gold_entry.get('task')}. Subtask: {segment.get('subtask_text')}."
+        for segment in segments
+    ]
+    _write_json(payload_path, payload)
+    _add_provenance(row, {"human_gold_boundaries_applied": True, "boundary_source": "human_gold_boundary_review"})
+    return {"segment_count": len(segments)}
+
+
+def _apply_gold_subgoal(
+    row: dict[str, Any],
+    gold_entry: dict[str, Any],
+    episode_row: pd.Series | None,
+    target_path: Path,
+) -> dict[str, Any] | None:
+    if episode_row is None:
+        return None
+    segment_idx = _safe_int(row.get("segment_idx"))
+    if segment_idx is None:
+        return None
+    gold_subgoal = _gold_item_by_idx(gold_entry, "subgoals").get(segment_idx)
+    frame_idx = _safe_int(gold_subgoal.get("frame_idx")) if gold_subgoal else None
+    if frame_idx is None and gold_subgoal and gold_subgoal.get("accept_auto"):
+        frame_idx = _safe_int(_gold_item_by_idx(gold_entry, "subgoals", auto=True).get(segment_idx, {}).get("frame_idx"))
+    if frame_idx is None:
+        return None
+
+    frames_path = Path(str(episode_row.get("source_path_frames") or ""))
+    if not frames_path.exists():
+        episode_dir = Path(str(episode_row.get("source_path_meta") or "")).parent
+        frames_path = episode_dir / "frames.npy"
+    if not frames_path.exists():
+        raise FileNotFoundError(f"frames.npy missing for human-gold subgoal extraction: {frames_path}")
+
+    frames = np.load(frames_path, mmap_mode="r")
+    frame_idx = max(0, min(int(frame_idx), int(frames.shape[0]) - 1))
+    episode_id = str(row.get("episode_id"))
+    out_dir = target_path / "subgoals" / episode_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    image_path = out_dir / f"{segment_idx:02d}.jpg"
+    Image.fromarray(np.asarray(frames[frame_idx], dtype=np.uint8)).save(image_path, quality=92)
+
+    payload_path = Path(str(row.get("label_payload_path") or out_dir / f"{segment_idx:02d}.json"))
+    if not payload_path.exists():
+        payload_path = out_dir / f"{segment_idx:02d}.json"
+    payload = _read_json(payload_path) if payload_path.exists() else {}
+    subtask = _gold_item_by_idx(gold_entry, "subtasks").get(segment_idx, {})
+    payload.update(
+        {
+            "episode_id": episode_id,
+            "segment_idx": segment_idx,
+            "frame_idx": frame_idx,
+            "subtask_text": subtask.get("subtask_text") or payload.get("subtask_text"),
+            "subgoal_image_path": str(image_path.resolve()),
+            "source": DERIVED_SUBGOAL_SOURCE,
+            "human_gold_applied": True,
+        }
+    )
+    _write_json(payload_path, payload)
+    row["label_payload_path"] = str(payload_path.resolve())
+    row["subgoal_image_path"] = str(image_path.resolve())
+    _add_provenance(
+        row,
+        {
+            "human_gold_subgoal_applied": True,
+            "source": DERIVED_SUBGOAL_SOURCE,
+            "frame_idx": frame_idx,
+        },
+    )
+    return {"segment_idx": segment_idx, "frame_idx": frame_idx}
+
+
+def _human_segments(gold_entry: dict[str, Any], auto_segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    num_steps = _safe_int(gold_entry.get("num_steps"))
+    gold_by_idx = _gold_item_by_idx(gold_entry, "subtasks")
+    result = []
+    for auto in sorted(auto_segments, key=lambda item: _safe_int(item.get("segment_idx")) or 0):
+        idx = _safe_int(auto.get("segment_idx"))
+        if idx is None:
+            continue
+        gold = gold_by_idx.get(idx, {})
+        if gold.get("accept_auto"):
+            start = _safe_int(auto.get("start_step"))
+            end = _safe_int(auto.get("end_step"))
+            text = auto.get("subtask_text")
+        elif gold.get("start_step") is not None or gold.get("end_step") is not None:
+            start = _safe_int(gold.get("start_step"))
+            end = _safe_int(gold.get("end_step"))
+            text = gold.get("subtask_text") or auto.get("subtask_text")
+        else:
+            start = _safe_int(auto.get("start_step"))
+            end = _safe_int(auto.get("end_step"))
+            text = auto.get("subtask_text")
+        if start is None or end is None:
+            continue
+        start = _clamp_step(start, num_steps)
+        end = _clamp_step(end, num_steps)
+        if end < start:
+            end = start
+        result.append(
+            {
+                **auto,
+                "segment_idx": idx,
+                "start_step": start,
+                "end_step": end,
+                "subtask_text": str(text or ""),
+                "source": "human_gold_boundary_review",
+                "human_gold_applied": True,
+            }
+        )
+    return result
+
+
+def _gold_item_by_idx(entry: dict[str, Any], key: str, auto: bool = False) -> dict[int, dict[str, Any]]:
+    source = "auto" if auto else "gold"
+    items = entry.get(source, {}).get(key, [])
+    result = {}
+    for item in items:
+        idx = _safe_int(item.get("segment_idx"))
+        if idx is not None:
+            result[idx] = item
+    return result
+
+
+def _copy_or_rewrite_path(path_value: Any, root: Path, target_snapshot: str) -> str:
+    if not _has_path_value(path_value):
+        return str(path_value)
     source = Path(str(path_value))
-    target = Path(str(path_value).replace(source_snapshot, target_snapshot))
+    target = _target_snapshot_path(source, root, target_snapshot)
     if target == source:
         return str(source)
     if source.exists():
@@ -161,9 +328,40 @@ def _copy_or_rewrite_path(path_value: Any, source_snapshot: str, target_snapshot
     return str(target)
 
 
-def _rewrite_existing_snapshot_path(path_value: Any, source_snapshot: str, target_snapshot: str) -> str:
-    rewritten = Path(str(path_value).replace(source_snapshot, target_snapshot))
-    return str(rewritten.resolve()) if rewritten.exists() else str(path_value)
+def _target_snapshot_path(source: Path, root: Path, target_snapshot: str) -> Path:
+    parts = list(source.parts)
+    for idx, part in enumerate(parts):
+        if part.startswith("snap_"):
+            parts[idx] = target_snapshot
+            return Path(*parts)
+    try:
+        rel = source.resolve().relative_to(root.resolve())
+    except ValueError:
+        return root / "snapshots" / target_snapshot / "copied_artifacts" / source.name
+    return root / "snapshots" / target_snapshot / "copied_artifacts" / rel.name
+
+
+def _has_path_value(value: Any) -> bool:
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip() not in {"", "None", "nan"}
+
+
+def _add_provenance(row: dict[str, Any], update: dict[str, Any]) -> None:
+    provenance = _parse_json(row.get("provenance_json"))
+    provenance.update(update)
+    row["provenance_json"] = json.dumps(provenance, sort_keys=True)
+
+
+def _clamp_step(value: int, num_steps: int | None) -> int:
+    if num_steps is not None and num_steps > 0:
+        return max(0, min(int(value), int(num_steps) - 1))
+    return max(0, int(value))
 
 
 def _counts(values: Any) -> dict[str, int]:

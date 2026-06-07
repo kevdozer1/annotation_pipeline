@@ -1,6 +1,6 @@
 # BridgeEngine Head-To-Head Preregistration
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 ## Headline Claim
 
@@ -18,29 +18,37 @@ Semantic source snapshot:
 snap_2026_05_11_1dde3edf5d
 ```
 
-Score-calibrated benchmark snapshot:
+Current benchmark snapshot:
 
 ```text
-snap_2026_05_11_1dde3edf5d_human_calibrated
+snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
-Current score calibration:
+Current human calibration:
 
 ```text
-reviewed clips: 100 / 100
+score-reviewed clips: 100 / 100
 score changes versus Gemini: 58 / 100
 Gemini auto score counts: {2: 5, 4: 9, 5: 86}
 Kevin calibrated score counts: {2: 6, 3: 15, 4: 30, 5: 49}
+boundary-reviewed clips: 50 / 50 subset
+subgoal labels: derived from reviewed subtask end_step values
 ```
 
-Subtask boundaries and subgoal selections looked good by visual inspection, but still need a measured reliability pass before the final comparison is treated as hardened.
+Source Gemini reliability against Kevin's reviewed labels:
+
+```text
+quality exact agreement: 0.42
+quality within-one agreement: 0.77
+subtask-boundary temporal IoU mean: 0.683
+derived subgoal frame agreement: 0.347
+```
+
+This is enough to treat the corrected snapshot as the current best pi0.7-side training cut, but it is not enough to claim that the uncorrected VLM labels are production-grade.
 
 ## Human Reliability Gate Before Final Run
 
-Run a focused 50-episode boundary/subgoal review before the final head-to-head. The score labels are already reviewed; the next pass should only answer:
-
-- Are the automatic subtask boundaries acceptable?
-- Are the automatic subgoal frames acceptable?
+Current state versus target:
 
 Target thresholds before final claim:
 
@@ -51,7 +59,7 @@ Target thresholds before final claim:
 | subtask-boundary temporal IoU | >= 0.70 |
 | subgoal-selection agreement | >= 0.75 |
 
-Exact 1-5 score agreement is reported but is not the primary reliability threshold, because curation scores are ordinal and subjective.
+The current VLM-vs-human reliability misses the quality within-one, boundary-IoU, and subgoal-agreement targets. The applied human-gold snapshot is still valid for the pi0.7-side smoke benchmark because it uses Kevin-corrected labels. Do not treat the raw Gemini labels as final-quality labels without another prompt/rubric iteration or more human correction.
 
 ## Perceptive-Signal Gate Before Final Run
 
@@ -60,7 +68,7 @@ The head-to-head must not use synthetic perceptive fallbacks.
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated --require-real
+.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --require-real
 ```
 
 This must pass before the perceptive comparison is valid. Each perceptive labeler needs one real payload per episode:
@@ -129,12 +137,12 @@ Document separately if a secondary "methods as practiced" comparison is ever run
 
 ## Current Best Pre-Final Result
 
-Score-calibrated 100-episode scale curve, two seeds:
+Human-score and human-boundary corrected 100-episode scale curve, two seeds:
 
 | N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|---:|
-| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
-| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
-| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
+| 25 | 0.038967 | 0.038332 | 0.036301 | 0.034922 |
+| 50 | 0.035255 | 0.035348 | 0.033385 | 0.030203 |
+| 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
-At N=100, `rich_text_metadata_subgoal` is 7.61% lower mean latent MSE than baseline. This is the result to beat or falsify with the perception head-to-head and more seeds.
+At N=100, `rich_text_metadata_subgoal` is 6.28% lower mean latent MSE than baseline. This is the result to beat or falsify with the perception head-to-head and more seeds.

@@ -1,11 +1,11 @@
 # BridgeEngine Status
 
-Last updated: 2026-06-05
+Last updated: 2026-06-07
 
 Current best snapshot:
 
 ```text
-snap_2026_05_11_1dde3edf5d_human_calibrated
+snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
 Source Gemini snapshot:
@@ -28,15 +28,13 @@ snap_2026_05_11_1dde3edf5d
 
 ## Human Calibration State
 
-Kevin reviewed all 100 clips in the dedicated GUI and changed scores only:
+Kevin reviewed all 100 clips in the dedicated GUI for score calibration, then reviewed timestamp boundaries on the 50-episode boundary/subgoal subset. Subgoal gold labels are derived from those reviewed subtask end boundaries, because this POC defines subgoals as the actual end-of-segment frame.
 
 ```text
-reviewed clips: 100 / 100
+score-reviewed clips: 100 / 100
 score changes versus Gemini: 58 / 100
-review notes intentionally entered: 0
-calibration reasons intentionally entered: 0
-subtask-boundary toggles used: 0
-subgoal toggles used: 0
+boundary-reviewed clips: 50 / 50 subset
+subgoal labels: derived from reviewed subtask end_step values
 ```
 
 Score distribution before and after calibration:
@@ -46,11 +44,20 @@ Score distribution before and after calibration:
 | Gemini auto curation | 0 | 5 | 0 | 9 | 86 |
 | Kevin score calibration | 0 | 6 | 15 | 30 | 49 |
 
-This is score calibration, not full gold annotation. Boundary IoU and subgoal-selection agreement are still unmeasured.
+Source Gemini reliability against Kevin's reviewed labels:
+
+```text
+quality exact agreement: 0.42
+quality within-one agreement: 0.77
+subtask boundary temporal IoU mean: 0.683
+derived subgoal frame agreement: 0.347
+```
+
+Interpretation: Gemini got the broad score band roughly right most of the time, but exact scoring was poorly calibrated to Kevin's rubric. The subtask segmentations were usable but not gold-quality; after deriving subgoals from Kevin's boundary timestamps, only about a third of auto subgoal frames exactly matched the reviewed boundary end frames.
 
 ## Current Quality State
 
-The human-calibrated all-100 snapshot passes the quality gate:
+The human-gold-label all-100 snapshot passes the quality gate:
 
 ```text
 Quality gate: PASS
@@ -66,40 +73,42 @@ Quality counts: {2: 6, 3: 15, 4: 30, 5: 49}
 
 ## Benchmark State
 
-The current chart is a real LeWM frozen-adapter scale curve over 100 local episodes, using a quality-stratified train split, a fixed mixed-quality 10-episode held-out split, and two seeds per family.
+The current chart is a real LeWM frozen-adapter scale curve over 100 local episodes, using Kevin-calibrated quality scores, human-reviewed boundaries where available, boundary-derived subgoal frames, a quality-stratified train split, a fixed mixed-quality 10-episode held-out split, and two seeds per family.
 
 Mean held-out latent MSE:
 
 | N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|---:|
-| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
-| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
-| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
+| 25 | 0.038967 | 0.038332 | 0.036301 | 0.034922 |
+| 50 | 0.035255 | 0.035348 | 0.033385 | 0.030203 |
+| 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
 Delta versus baseline, lower is better:
 
 | N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|
-| 25 | -2.38% | -5.70% | -9.64% |
-| 50 | -2.58% | -8.79% | -11.39% |
-| 100 | +2.67% | +1.37% | -7.61% |
+| 25 | -1.63% | -6.84% | -10.38% |
+| 50 | +0.26% | -5.30% | -14.33% |
+| 100 | +0.73% | +0.04% | -6.28% |
 
-Interpretation: after score calibration, the metadata+subgoal family beats baseline at all three tested sizes. Text-only and metadata-only help at N=25 and N=50 but regress slightly at N=100. This is a positive smoke-scale result, not a robust robotics conclusion.
+Interpretation: after score and boundary/subgoal correction, the metadata+subgoal family beats baseline at all three tested sizes. Text-only and metadata-only do not hold a stable advantage at N=100. This supports the narrower claim that structured prompt metadata plus subgoal frames are the strongest pi0.7-style signal in this 100-episode LeWM smoke test, but it is not yet a robust robotics conclusion.
 
-![Human-Calibrated Scale Curve](figures/scale_curve_human_calibrated_100.png)
+![Human-Gold-Label Scale Curve](figures/scale_curve_human_gold_labels_100.png)
 
 ## Validation Run
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated
-.\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated --sizes 25 50 100 --heldout-count 10 --quality-stratified --benchmark-seeds 0 1 --output-dir scale_results\human_calibrated_100 --run
+.\.venv\Scripts\python.exe -m bridgeengine.derive_subgoals --snapshot snap_2026_05_11_1dde3edf5d --gold-file bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json
+.\.venv\Scripts\python.exe -m bridgeengine.apply_gold --source-snapshot snap_2026_05_11_1dde3edf5d --target-snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --gold-file bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json --overwrite
+.\.venv\Scripts\python.exe -m bridgeengine.quality_report --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels
+.\.venv\Scripts\python.exe -m bridgeengine.benchmark.scale_curve --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --sizes 25 50 100 --heldout-count 10 --quality-stratified --benchmark-seeds 0 1 --output-dir scale_results\human_gold_labels_100 --run
 .\.venv\Scripts\python.exe -m pytest
 ```
 
 ## What Is Still Blocked
 
-- Subtask boundary and subgoal labels are not human-gold validated; use `gold_sets/boundary_subgoal_review_50.json` with `--review-goal boundary_subgoal`.
-- The scale curve has only two seeds.
+- Only 50 of 100 episodes have explicit human-reviewed subtask boundaries; the remaining 50 use auto boundaries in the applied snapshot.
+- The scale curve has only two seeds; the pre-registered head-to-head should use 3-5 seeds.
 - Perceptive mask/depth/track labels are not ready for the final head-to-head; `bridgeengine.perceptive_status --require-real` currently fails because no perceptive rows are present on the calibrated snapshot.
 - The local SSD source exposes 100 episodes, not the full BridgeData V2 corpus.
 - Standard RLDS/LeRobot export is not implemented.
@@ -108,10 +117,7 @@ Interpretation: after score calibration, the metadata+subgoal family beats basel
 ## Next Command For Kevin
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.review_gui `
-  --snapshot snap_2026_05_11_1dde3edf5d `
-  --gold-file C:\Users\Kevin\projects\annotation_pipeline\bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
-  --episode-file gold_sets\boundary_subgoal_review_50.json `
-  --review-goal boundary_subgoal `
-  --port 8787
+.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --require-real
 ```
+
+That command should fail until real SAM/depth/track outputs are present. Passing it is the next critical path before the final pi0.7-vs-perceptive head-to-head claim.

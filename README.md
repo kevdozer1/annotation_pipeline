@@ -4,7 +4,7 @@ Prototype implementation of pi0.7 annotation pipeline on BridgeDataV2
 
 BridgeEngine is a Mode A proof-of-concept data engine for pi0.7-style robot annotation on BridgeData V2. It builds local Parquet snapshots, runs rich-prompt labelers, exposes DuckDB queries and viewers, exports deterministic training cuts, and runs real LeWM frozen-adapter label-value benchmarks.
 
-The current pivot tests whether VLM-derived subtask segmentation plus calibrated episode metadata is enough to produce a pi0.7-style conditioning effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not part of the main benchmark. The current score-calibrated 100-episode LeWM smoke ablation is positive for the rich-text + metadata + subgoal family, but it is still a two-seed smoke result, not a robust robotics conclusion.
+The current pivot tests whether VLM-derived subtask segmentation plus calibrated episode metadata is enough to produce a pi0.7-style conditioning effect at POC scale. Perception labelers from the original version are preserved as comparison modules, but they are not ready for the final head-to-head yet. The current human-score and human-boundary corrected 100-episode LeWM smoke ablation is positive for the rich-text + metadata + subgoal family, but it is still a two-seed smoke result, not a robust robotics conclusion.
 
 ## Quickstart
 
@@ -106,44 +106,31 @@ BridgeData V2
 
 ## Current Benchmark Finding
 
-Current best result on `snap_2026_05_11_1dde3edf5d_human_calibrated`:
+Current best result on `snap_2026_05_11_1dde3edf5d_human_gold_labels`:
 
 | N | baseline | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|---:|
-| 25 | 0.042079 | 0.041079 | 0.039682 | 0.038022 |
-| 50 | 0.031014 | 0.030213 | 0.028289 | 0.027482 |
-| 100 | 0.022522 | 0.023123 | 0.022831 | 0.020807 |
+| 25 | 0.038967 | 0.038332 | 0.036301 | 0.034922 |
+| 50 | 0.035255 | 0.035348 | 0.033385 | 0.030203 |
+| 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
 Delta versus baseline:
 
 | N | rich_text | rich_text_metadata | rich_text_metadata_subgoal |
 |---:|---:|---:|---:|
-| 25 | -2.38% | -5.70% | -9.64% |
-| 50 | -2.58% | -8.79% | -11.39% |
-| 100 | +2.67% | +1.37% | -7.61% |
+| 25 | -1.63% | -6.84% | -10.38% |
+| 50 | +0.26% | -5.30% | -14.33% |
+| 100 | +0.73% | +0.04% | -6.28% |
 
-Read this as: the real benchmark path works, and after Kevin reviewed all 100 clips and changed 58 scores, the metadata+subgoal family beats baseline across the tested sizes. This is still a two-seed, 100-episode LeWM frozen-adapter smoke result. Boundary and subgoal labels have not been human-gold validated.
+Read this as: the real benchmark path works, and after Kevin reviewed all 100 scores plus timestamp boundaries on the 50-episode reliability subset, the metadata+subgoal family beats baseline across the tested sizes. This is still a two-seed, 100-episode LeWM frozen-adapter smoke result.
 
 ## Final Closeout Path
 
-The next human task is boundary/subgoal reliability review, not rescoring. The prepared 50-episode queue is:
-
-```text
-gold_sets/boundary_subgoal_review_50.json
-```
-
-Start the focused review GUI:
+The next critical path is real perceptive labels, not more semantic rescoring. Check readiness:
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.review_gui `
-  --snapshot snap_2026_05_11_1dde3edf5d `
-  --gold-file C:\Users\Kevin\projects\annotation_pipeline\bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
-  --episode-file gold_sets\boundary_subgoal_review_50.json `
-  --review-goal boundary_subgoal `
-  --port 8787
+.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels --require-real
 ```
-
-For each selected episode, leave the score alone. If the auto labels look right, check the top-level subtask and subgoal accept boxes. If a transition is wrong, scrub the video to the transition and click `Set first/second/third boundary here`; the GUI fills adjacent start/end fields automatically. If a subgoal is wrong, use `Use current` while paused at the better frame. A subgoal is a representative frame, not a bounding box.
 
 The controlled head-to-head experiment is preregistered in `HEAD_TO_HEAD_PREREGISTRATION.md`. The public fork plan is in `PUBLIC_RELEASE_PLAN.md`.
 

@@ -1,6 +1,6 @@
 # BridgeEngine Closeout Plan
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 ## Current Direction
 
@@ -15,10 +15,12 @@ Do the scientific claim first. The internal experiment needs a frozen rubric and
 
 - 100 local BridgeData episodes labeled with Gemini.
 - Kevin reviewed all 100 clips and changed 58 curation scores.
-- Score-calibrated snapshot created:
+- Kevin reviewed timestamp boundaries on the 50-episode boundary/subgoal subset.
+- Subgoal gold labels were derived from reviewed subtask end boundaries.
+- Current human-gold-label snapshot created:
 
 ```text
-snap_2026_05_11_1dde3edf5d_human_calibrated
+snap_2026_05_11_1dde3edf5d_human_gold_labels
 ```
 
 - Calibrated quality gate passes:
@@ -29,78 +31,55 @@ Episode pass rate: 1.000
 Quality counts: {2: 6, 3: 15, 4: 30, 5: 49}
 ```
 
-- The score-calibrated 100-episode LeWM scale curve is positive for metadata+subgoal conditioning:
+- Source Gemini reliability against Kevin's reviewed labels:
 
 ```text
-N=100 baseline:                    0.022522
-N=100 rich_text_metadata_subgoal:  0.020807
-delta:                            -7.61%
+quality exact agreement: 0.42
+quality within-one agreement: 0.77
+subtask-boundary temporal IoU mean: 0.683
+derived subgoal frame agreement: 0.347
+```
+
+- The human-gold-label 100-episode LeWM scale curve is positive for metadata+subgoal conditioning:
+
+```text
+N=100 baseline:                    0.021839
+N=100 rich_text_metadata_subgoal:  0.020468
+delta:                            -6.28%
 ```
 
 This is still a two-seed smoke result.
 
-## Next Human Review Command
+## Next Critical Path
 
-The next human task is **not rescoring**. It is boundary/subgoal reliability.
+The next task is not more score review. The current blocker is real perceptive labels for the controlled pi0.7-vs-perceptive comparison.
 
-Start the GUI:
+Check readiness:
 
 ```powershell
 cd C:\Users\Kevin\projects\annotation_pipeline
-.\.venv\Scripts\python.exe -m bridgeengine.review_gui `
-  --snapshot snap_2026_05_11_1dde3edf5d `
-  --gold-file C:\Users\Kevin\projects\annotation_pipeline\bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
-  --episode-file gold_sets\boundary_subgoal_review_50.json `
-  --review-goal boundary_subgoal `
-  --port 8787
+.\.venv\Scripts\python.exe -m bridgeengine.perceptive_status `
+  --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels `
+  --require-real
 ```
 
-Open:
+Current state: not ready. The human-gold-label snapshot does not yet have perceptive mask/depth/track rows.
 
-```text
-http://127.0.0.1:8787
-```
-
-For each episode:
-
-1. Leave the score alone.
-2. Check **Accept auto subtask boundaries** if all boundaries look good.
-3. Check **Accept auto subgoal frames** if all subgoal frames look good.
-4. If a transition is wrong, scrub/pause the video at the transition and click **Set first/second/third boundary here**. This fills the adjacent segment end/start fields automatically.
-5. If one segment still needs manual adjustment, uncheck that row and edit its start/end step or subtask text.
-6. If one subgoal is wrong, uncheck that row and edit the frame index or use **Use current** while the video is paused at the right frame.
-7. Click **Save review and next**.
-
-Terminology: a subgoal is a representative future frame for a subtask, usually the segment end frame. It is not a spatial bounding box.
-
-The 50-episode queue has this calibrated score spread:
-
-```text
-{2: 6, 3: 8, 4: 10, 5: 26}
-```
-
-It includes 30 episodes where Kevin's score differed from Gemini and 20 where it did not.
-
-## After Human Boundary/Subgoal Review
+## Reproducing Human-Gold Application
 
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m bridgeengine.goldset report `
+.\.venv\Scripts\python.exe -m bridgeengine.derive_subgoals `
   --snapshot snap_2026_05_11_1dde3edf5d `
   --gold-file bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json
+
+.\.venv\Scripts\python.exe -m bridgeengine.apply_gold `
+  --source-snapshot snap_2026_05_11_1dde3edf5d `
+  --target-snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels `
+  --gold-file bridgeengine_data\snapshots\snap_2026_05_11_1dde3edf5d\gold\calibration_gold.json `
+  --overwrite
 ```
-
-Target thresholds:
-
-```text
-quality within-one agreement: >= 0.85
-keep/reject agreement:        >= 0.90
-boundary temporal IoU:        >= 0.70
-subgoal agreement:            >= 0.75
-```
-
-If the boundary/subgoal numbers pass, the annotation pipeline is reliable enough for the final controlled comparison.
 
 ## Perception Critical Path
 
@@ -110,11 +89,11 @@ Check readiness:
 
 ```powershell
 .\.venv\Scripts\python.exe -m bridgeengine.perceptive_status `
-  --snapshot snap_2026_05_11_1dde3edf5d_human_calibrated `
+  --snapshot snap_2026_05_11_1dde3edf5d_human_gold_labels `
   --require-real
 ```
 
-Current state: not ready. The human-calibrated snapshot does not yet have perceptive mask/depth/track rows.
+Current state: not ready. The human-gold-label snapshot does not yet have perceptive mask/depth/track rows.
 
 The final comparison must not use synthetic perceptive fallbacks. If this command fails, fix SAM/VDA/CoTracker artifact generation or loading first.
 
