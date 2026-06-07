@@ -572,6 +572,16 @@ INDEX_HTML = r"""<!doctype html>
       margin: 8px 0;
       background: #fff;
     }
+    .keypoint-controls {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      margin: 8px 0;
+      background: #f8fafc;
+    }
+    .keypoint-controls .row {
+      margin-top: 7px;
+    }
     .editor-card h4 {
       margin: 0 0 7px;
       font-size: 13px;
@@ -799,6 +809,24 @@ function renderBoundaryEditor() {
   const root = document.getElementById('boundaryEditor');
   root.innerHTML = '';
   const goldByIdx = new Map((episode.review.gold_subtasks || []).map(item => [Number(item.segment_idx), item]));
+  if ((episode.segments || []).length > 1) {
+    const controls = document.createElement('div');
+    controls.className = 'keypoint-controls';
+    controls.innerHTML = `
+      <div class="muted" style="font-size:12px">Scrub/pause the video at a task transition, then set the boundary from the current frame.</div>
+      <div class="row" id="boundaryKeypointButtons"></div>
+    `;
+    root.appendChild(controls);
+    const buttons = controls.querySelector('#boundaryKeypointButtons');
+    for (let i = 0; i < episode.segments.length - 1; i++) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      button.textContent = `Set ${ordinal(i + 1)} boundary here`;
+      button.onclick = () => setBoundaryKeypoint(i);
+      buttons.appendChild(button);
+    }
+  }
   for (const segment of episode.segments || []) {
     const gold = goldByIdx.get(Number(segment.segment_idx)) || {};
     const accepted = gold.accept_auto === true || episode.review.accept_auto_subtasks === true;
@@ -830,6 +858,23 @@ function renderBoundaryEditor() {
       document.getElementById('acceptSubtasks').checked = false;
     });
   }
+}
+
+function setBoundaryKeypoint(boundaryIdx) {
+  const step = currentVideoStep();
+  const rows = Array.from(document.querySelectorAll('.boundary-row')).sort(
+    (a, b) => Number(a.dataset.segmentIdx) - Number(b.dataset.segmentIdx)
+  );
+  const left = rows[boundaryIdx];
+  const right = rows[boundaryIdx + 1];
+  if (!left || !right) return;
+  const maxStep = Math.max(0, (episode.num_steps || 1) - 1);
+  const clamped = Math.max(0, Math.min(maxStep, step));
+  left.querySelector('.boundary-end').value = clamped;
+  left.querySelector('.boundary-accept').checked = false;
+  right.querySelector('.boundary-start').value = Math.min(maxStep, clamped + 1);
+  right.querySelector('.boundary-accept').checked = false;
+  document.getElementById('acceptSubtasks').checked = false;
 }
 
 function renderSubgoalEditor() {
@@ -996,6 +1041,11 @@ function escapeHtml(text) {
 
 function escapeAttr(text) {
   return escapeHtml(text).replace(/`/g, '&#096;');
+}
+
+function ordinal(value) {
+  const names = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+  return names[value - 1] || `${value}th`;
 }
 
 document.getElementById('video').addEventListener('timeupdate', updateActiveSubtask);

@@ -7,7 +7,7 @@ from bridgeengine.apply_gold import apply_gold_scores_to_snapshot
 from bridgeengine.ingest import ingest_bridge_v2
 from bridgeengine.orchestrate import run_labelers
 from bridgeengine.reliability_review import plan_reliability_review
-from bridgeengine.review_gui import ReviewDataset
+from bridgeengine.review_gui import INDEX_HTML, ReviewDataset
 
 
 def test_calibration_gold_review_roundtrip(tmp_path: Path) -> None:
@@ -217,3 +217,9 @@ def test_boundary_subgoal_review_can_save_corrections(tmp_path: Path) -> None:
     assert report["subtask_boundary_temporal_iou_mean"] is not None
     assert report["subtask_boundary_temporal_iou_mean"] < 1.0
     assert report["subgoal_selection_agreement"] == 0.0
+
+
+def test_review_gui_has_current_frame_boundary_controls() -> None:
+    assert "Set ${ordinal(i + 1)} boundary here" in INDEX_HTML
+    assert "setBoundaryKeypoint" in INDEX_HTML
+    assert "currentVideoStep" in INDEX_HTML
