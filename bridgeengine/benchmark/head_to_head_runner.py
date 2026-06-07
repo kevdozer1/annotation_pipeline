@@ -510,7 +510,14 @@ def _summarize_split_h5(
     }
 
 
-def run_command_manifest(manifest_path: str | Path, *, skip_existing: bool = True, max_cells: int | None = None) -> None:
+def run_command_manifest(
+    manifest_path: str | Path,
+    *,
+    skip_existing: bool = True,
+    max_cells: int | None = None,
+    cleanup_epoch_checkpoints: bool = True,
+    clean_stale_runs: bool = True,
+) -> None:
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     cells = [cmd for cmd in manifest["commands"] if cmd.get("paradigm") == "lewm_cv_aux"]
     if max_cells is not None:
@@ -521,11 +528,44 @@ def run_command_manifest(manifest_path: str | Path, *, skip_existing: bool = Tru
         if skip_existing and eval_json.exists():
             print(f"[skip] {eval_json}")
             continue
+        if clean_stale_runs and run_dir.exists() and not eval_json.exists():
+            print(f"[clean stale] {run_dir}")
+            _safe_rmtree(run_dir)
         run_dir.mkdir(parents=True, exist_ok=True)
         print(f"[train] scale={cell['scale_n']} condition={cell['condition']} seed={cell['seed']}")
         subprocess.run(cell["train_cmd"], check=True)
         print(f"[eval] {run_dir}")
         subprocess.run(cell["eval_cmd"], check=True)
+        if cleanup_epoch_checkpoints:
+            _cleanup_epoch_checkpoints(run_dir)
+
+
+def _cleanup_epoch_checkpoints(run_dir: Path) -> None:
+    checkpoints = run_dir / "checkpoints"
+    if not checkpoints.exists():
+        return
+    final = checkpoints / "final" / "full_weights.pt"
+    eval_json = run_dir / "fixed_eval.json"
+    if not final.exists() or not eval_json.exists():
+        return
+    for epoch_dir in checkpoints.glob("epoch_*"):
+        if epoch_dir.is_dir():
+            _safe_rmtree(epoch_dir)
+
+
+def _safe_rmtree(path: Path) -> None:
+    import tempfile
+    import shutil
+
+    target = path.resolve()
+    allowed_roots = [
+        Path.cwd().resolve(),
+        Path("D:/lewm_runs").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+    ]
+    if not any(str(target).lower().startswith(str(root).lower()) for root in allowed_roots):
+        raise ValueError(f"Refusing to remove unexpected path: {target}")
+    shutil.rmtree(target)
 
 
 def _lewm_config(
@@ -633,6 +673,8 @@ def main() -> None:
     run.add_argument("--manifest", required=True)
     run.add_argument("--no-skip-existing", action="store_true")
     run.add_argument("--max-cells", type=int, default=None)
+    run.add_argument("--keep-epoch-checkpoints", action="store_true")
+    run.add_argument("--keep-stale-runs", action="store_true")
 
     args = parser.parse_args()
     if args.cmd == "verify-signals":
@@ -655,7 +697,13 @@ def main() -> None:
         )
         print(json.dumps(manifest, indent=2, sort_keys=True))
     elif args.cmd == "run-manifest":
-        run_command_manifest(args.manifest, skip_existing=not args.no_skip_existing, max_cells=args.max_cells)
+        run_command_manifest(
+            args.manifest,
+            skip_existing=not args.no_skip_existing,
+            max_cells=args.max_cells,
+            cleanup_epoch_checkpoints=not args.keep_epoch_checkpoints,
+            clean_stale_runs=not args.keep_stale_runs,
+        )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 param(
     [string]$Snapshot = "snap_2026_05_11_1dde3edf5d_human_gold_labels",
-    [string]$OutputDir = "head_to_head_results\run_100",
+    [string]$OutputDir = "D:\lewm_runs\bridgeengine_head_to_head\run_100",
     [switch]$PrepareOnly,
     [switch]$SkipCvAux,
     [switch]$SkipPi07

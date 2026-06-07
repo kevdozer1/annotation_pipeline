@@ -9,7 +9,11 @@ from bridgeengine.benchmark.head_to_head import (
     compare_snapshot_to_lewm_manifest,
     estimate_runtime,
 )
-from bridgeengine.benchmark.head_to_head_runner import export_h5_subset, verify_signal_files
+from bridgeengine.benchmark.head_to_head_runner import (
+    _cleanup_epoch_checkpoints,
+    export_h5_subset,
+    verify_signal_files,
+)
 from bridgeengine.ingest import ingest_bridge_v2
 
 
@@ -170,3 +174,19 @@ def test_verify_signal_files_reports_missing(tmp_path: Path) -> None:
     assert report["episode_ok_count"] == 0
     assert report["episode_missing_count"] == 1
     assert report["missing"][0]["missing"] == ["depth.npy", "tracks.npy", "visibility.npy"]
+
+
+def test_cleanup_epoch_checkpoints_keeps_final(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    epoch_dir = run_dir / "checkpoints" / "epoch_1"
+    final_dir = run_dir / "checkpoints" / "final"
+    epoch_dir.mkdir(parents=True)
+    final_dir.mkdir(parents=True)
+    (epoch_dir / "full_weights.pt").write_bytes(b"epoch")
+    (final_dir / "full_weights.pt").write_bytes(b"final")
+    (run_dir / "fixed_eval.json").write_text("{}", encoding="utf-8")
+
+    _cleanup_epoch_checkpoints(run_dir)
+
+    assert not epoch_dir.exists()
+    assert (final_dir / "full_weights.pt").exists()

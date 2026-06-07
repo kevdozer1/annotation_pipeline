@@ -200,6 +200,14 @@ Prepare-only smoke/inspection command:
 
 The handoff script verifies signal files, creates split-specific train and held-out HDF5 files, writes LeWM configs, retrains CV aux conditions from the pretrained LeWM checkpoint, evaluates on the explicit fixed held-out HDF5, then runs the BridgeEngine pi0.7 scale curve with matched `20` epochs, batch `16`, and lr `5e-5`.
 
+Default output is on the SSD:
+
+```text
+D:\lewm_runs\bridgeengine_head_to_head\run_100
+```
+
+Do not run the full grid into the repo-local `head_to_head_results\run_100` directory on `C:`. The native LeWM trainer writes checkpoints during training and C: does not have enough free space for the grid.
+
 Do not evaluate the old cached random-split LeWM checkpoints on the fixed held-out set. They may overlap the preregistered held-out episodes and are kept only as runtime anchors.
 
 ## Runtime Estimate
