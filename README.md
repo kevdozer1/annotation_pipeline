@@ -143,7 +143,7 @@ Start the focused review GUI:
   --port 8787
 ```
 
-For each selected episode, leave the score alone and only accept or reject the auto subtask boundaries and auto subgoal frames.
+For each selected episode, leave the score alone. If the auto labels look right, check the top-level subtask and subgoal accept boxes. If a row is wrong, uncheck that row and edit the subtask start/end step or the subgoal frame index. A subgoal is a representative frame, not a bounding box.
 
 The controlled head-to-head experiment is preregistered in `HEAD_TO_HEAD_PREREGISTRATION.md`. The public fork plan is in `PUBLIC_RELEASE_PLAN.md`.
 

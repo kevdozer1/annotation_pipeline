@@ -162,3 +162,58 @@ def test_boundary_subgoal_review_subset_has_separate_completion(tmp_path: Path) 
         }
     )
     assert saved["state"]["reviewed_count"] == 1
+
+
+def test_boundary_subgoal_review_can_save_corrections(tmp_path: Path) -> None:
+    result = ingest_bridge_v2(source="synthetic", episodes=1, data_root=tmp_path)
+    run_labelers(result["snapshot_id"], data_root=tmp_path, vlm_backend="mock")
+    gold_path = tmp_path / "calibration_gold.json"
+    payload = load_or_create_calibration_gold(result["snapshot_id"], gold_path, data_root=tmp_path)
+    episode_id = payload["episodes"][0]["episode_id"]
+    dataset = ReviewDataset(
+        result["snapshot_id"],
+        data_root=tmp_path,
+        gold_file=gold_path,
+        review_goal="boundary_subgoal",
+    )
+    episode = dataset.episode_payload(episode_id)
+    first_segment = episode["segments"][0]
+    first_subgoal = episode["subgoals"][0]
+    corrected_frame = int(first_subgoal["frame_idx"]) + 1
+    if corrected_frame >= int(episode["num_steps"]):
+        corrected_frame = max(0, int(first_subgoal["frame_idx"]) - 1)
+
+    dataset.save_review(
+        {
+            "episode_id": episode_id,
+            "score": episode["review"]["gold_score"],
+            "mistake": False,
+            "reason": "",
+            "notes": "",
+            "accept_auto_metadata": False,
+            "accept_auto_subtasks": False,
+            "accept_auto_subgoals": False,
+            "subtasks": [
+                {
+                    "segment_idx": first_segment["segment_idx"],
+                    "accept_auto": False,
+                    "start_step": first_segment["start_step"],
+                    "end_step": max(first_segment["start_step"], first_segment["end_step"] - 1),
+                    "subtask_text": first_segment["subtask_text"],
+                }
+            ],
+            "subgoals": [
+                {
+                    "segment_idx": first_subgoal["segment_idx"],
+                    "accept_auto": False,
+                    "frame_idx": corrected_frame,
+                }
+            ],
+        }
+    )
+
+    report = calibration_reliability(result["snapshot_id"], gold_path, data_root=tmp_path)
+    assert report["reviewed_episode_count"] == 1
+    assert report["subtask_boundary_temporal_iou_mean"] is not None
+    assert report["subtask_boundary_temporal_iou_mean"] < 1.0
+    assert report["subgoal_selection_agreement"] == 0.0

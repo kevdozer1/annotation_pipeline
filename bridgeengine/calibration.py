@@ -66,6 +66,8 @@ def update_episode_review(
     accept_auto_metadata: bool = False,
     accept_auto_subtasks: bool | None = None,
     accept_auto_subgoals: bool | None = None,
+    gold_subtasks: list[dict[str, Any]] | None = None,
+    gold_subgoals: list[dict[str, Any]] | None = None,
     gold_file: str | Path | None = None,
     data_root: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -83,7 +85,9 @@ def update_episode_review(
     gold_metadata["reason"] = reason or ""
     gold_metadata["accept_auto"] = bool(accept_auto_metadata)
 
-    if accept_auto_subtasks is not None:
+    if gold_subtasks is not None:
+        _update_gold_subtasks(entry, gold_subtasks)
+    elif accept_auto_subtasks is not None:
         for subtask in entry.get("gold", {}).get("subtasks", []):
             subtask["accept_auto"] = bool(accept_auto_subtasks)
     if accept_auto_subgoals is not None:
@@ -95,10 +99,52 @@ def update_episode_review(
                 subgoal["frame_idx"] = auto_frames.get(subgoal.get("segment_idx"))
             else:
                 subgoal["frame_idx"] = None
+    if gold_subgoals is not None:
+        _update_gold_subgoals(entry, gold_subgoals)
 
     entry["review_notes"] = review_notes or ""
     _write_json(path, gold)
     return entry
+
+
+def _update_gold_subtasks(entry: dict[str, Any], updates: list[dict[str, Any]]) -> None:
+    auto_by_idx = {
+        item.get("segment_idx"): item
+        for item in entry.get("auto", {}).get("subtasks", [])
+    }
+    update_by_idx = {item.get("segment_idx"): item for item in updates}
+    for subtask in entry.get("gold", {}).get("subtasks", []):
+        idx = subtask.get("segment_idx")
+        if idx not in update_by_idx:
+            continue
+        update = update_by_idx[idx]
+        accept_auto = bool(update.get("accept_auto", False))
+        auto = auto_by_idx.get(idx, {})
+        subtask["accept_auto"] = accept_auto
+        if accept_auto:
+            subtask["start_step"] = auto.get("start_step")
+            subtask["end_step"] = auto.get("end_step")
+            subtask["subtask_text"] = auto.get("subtask_text")
+        else:
+            subtask["start_step"] = _safe_int(update.get("start_step"))
+            subtask["end_step"] = _safe_int(update.get("end_step"))
+            subtask["subtask_text"] = str(update.get("subtask_text") or auto.get("subtask_text") or "")
+
+
+def _update_gold_subgoals(entry: dict[str, Any], updates: list[dict[str, Any]]) -> None:
+    auto_frames = {
+        item.get("segment_idx"): item.get("frame_idx")
+        for item in entry.get("auto", {}).get("subgoals", [])
+    }
+    update_by_idx = {item.get("segment_idx"): item for item in updates}
+    for subgoal in entry.get("gold", {}).get("subgoals", []):
+        idx = subgoal.get("segment_idx")
+        if idx not in update_by_idx:
+            continue
+        update = update_by_idx[idx]
+        accept_auto = bool(update.get("accept_auto", False))
+        subgoal["accept_auto"] = accept_auto
+        subgoal["frame_idx"] = auto_frames.get(idx) if accept_auto else _safe_int(update.get("frame_idx"))
 
 
 def review_summary(

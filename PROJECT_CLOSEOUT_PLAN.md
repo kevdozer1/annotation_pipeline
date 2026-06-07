@@ -64,10 +64,13 @@ http://127.0.0.1:8787
 For each episode:
 
 1. Leave the score alone.
-2. Check **Accept auto subtask boundaries** if the boundaries look good.
-3. Check **Accept auto subgoal frames** if the subgoal frames look good.
-4. Leave a box unchecked only if you genuinely disagree.
-5. Click **Save review and next**.
+2. Check **Accept auto subtask boundaries** if all boundaries look good.
+3. Check **Accept auto subgoal frames** if all subgoal frames look good.
+4. If one segment is wrong, uncheck that row and edit its start/end step or subtask text.
+5. If one subgoal is wrong, uncheck that row and edit the frame index or use **Use current** while the video is paused at the right frame.
+6. Click **Save review and next**.
+
+Terminology: a subgoal is a representative future frame for a subtask, usually the segment end frame. It is not a spatial bounding box.
 
 The 50-episode queue has this calibrated score spread:
 

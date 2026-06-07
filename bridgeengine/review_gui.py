@@ -144,6 +144,8 @@ class ReviewDataset:
                 "notes": "" if review.get("notes") is None or pd.isna(review.get("notes")) else str(review.get("notes")),
                 "accept_auto_subtasks": _all_accept_values(gold_entry.get("gold", {}).get("subtasks", [])),
                 "accept_auto_subgoals": _all_accept_values(gold_entry.get("gold", {}).get("subgoals", [])),
+                "gold_subtasks": _jsonable(gold_entry.get("gold", {}).get("subtasks", [])),
+                "gold_subgoals": _jsonable(gold_entry.get("gold", {}).get("subgoals", [])),
             },
             "prev_episode_id": self.prev_episode_id(episode_id),
             "next_episode_id": self.next_episode_id(episode_id),
@@ -165,6 +167,8 @@ class ReviewDataset:
                 accept_auto_metadata=bool(payload.get("accept_auto_metadata", False)),
                 accept_auto_subtasks=bool(payload.get("accept_auto_subtasks", False)),
                 accept_auto_subgoals=bool(payload.get("accept_auto_subgoals", False)),
+                gold_subtasks=_list_or_none(payload.get("subtasks")),
+                gold_subgoals=_list_or_none(payload.get("subgoals")),
                 gold_file=self.gold_file,
                 data_root=self.root,
             )
@@ -220,8 +224,8 @@ class ReviewDataset:
         for entry in gold.get("episodes", []):
             subtasks = entry.get("gold", {}).get("subtasks", [])
             subgoals = entry.get("gold", {}).get("subgoals", [])
-            subtask_done = bool(subtasks) and all(item.get("accept_auto") is not None for item in subtasks)
-            subgoal_done = bool(subgoals) and all(item.get("accept_auto") is not None for item in subgoals)
+            subtask_done = bool(subtasks) and all(_subtask_reviewed(item) for item in subtasks)
+            subgoal_done = bool(subgoals) and all(_subgoal_reviewed(item) for item in subgoals)
             if subtask_done and subgoal_done:
                 reviewed.add(str(entry.get("episode_id")))
         return reviewed
@@ -262,6 +266,11 @@ class ReviewDataset:
                 "subgoal_image_path": str(path),
                 "exists": path.exists(),
             }
+            payload_path = Path(str(row.get("label_payload_path", "")))
+            if payload_path.exists():
+                payload = _read_json(payload_path)
+                item["frame_idx"] = payload.get("frame_idx")
+                item["subtask_text"] = payload.get("subtask_text")
             if with_urls and path.exists():
                 episode_id = str(row.get("episode_id"))
                 item["url"] = f"/subgoal/{episode_id}/{segment_idx}"
@@ -556,6 +565,45 @@ INDEX_HTML = r"""<!doctype html>
       margin: 5px 0 10px;
     }
     .checks label { display: block; margin: 8px 0; font-size: 13px; }
+    .editor-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      margin: 8px 0;
+      background: #fff;
+    }
+    .editor-card h4 {
+      margin: 0 0 7px;
+      font-size: 13px;
+    }
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 68px 68px 1fr;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .editor-grid input[type="number"],
+    .editor-grid input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 6px;
+      min-width: 0;
+    }
+    .subgoal-grid {
+      display: grid;
+      grid-template-columns: 80px 90px 1fr;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .subgoal-grid input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 6px;
+    }
     .muted { color: var(--muted); }
     .pill {
       display: inline-flex;
@@ -617,6 +665,12 @@ INDEX_HTML = r"""<!doctype html>
         <label><input type="checkbox" id="acceptSubtasks"> Accept auto subtask boundaries for reliability</label>
         <label><input type="checkbox" id="acceptSubgoals"> Accept auto subgoal frames for reliability</label>
       </div>
+      <h3>Subtask boundary corrections</h3>
+      <div class="muted" style="font-size:12px">Leave rows accepted if they look right. Uncheck a row and edit start/end only when the boundary is wrong.</div>
+      <div id="boundaryEditor"></div>
+      <h3>Subgoal frame corrections</h3>
+      <div class="muted" style="font-size:12px">A subgoal is the representative future frame for that subtask, usually the segment end frame. It is not a bounding box.</div>
+      <div id="subgoalEditor"></div>
       <label class="muted">Calibration reason</label>
       <textarea id="reason"></textarea>
       <label class="muted">Review notes</label>
@@ -705,6 +759,8 @@ function renderEpisode() {
   document.getElementById('reason').value = episode.metadata.scoring_reason || '';
   document.getElementById('notes').value = episode.review.notes || '';
   renderScores(episode.review.gold_score || episode.review.auto_score || 3);
+  renderBoundaryEditor();
+  renderSubgoalEditor();
   renderTimeline();
   renderSubgoals();
   renderMetadata();
@@ -737,6 +793,78 @@ function renderTimeline() {
     bar.appendChild(div);
   }
   updateActiveSubtask();
+}
+
+function renderBoundaryEditor() {
+  const root = document.getElementById('boundaryEditor');
+  root.innerHTML = '';
+  const goldByIdx = new Map((episode.review.gold_subtasks || []).map(item => [Number(item.segment_idx), item]));
+  for (const segment of episode.segments || []) {
+    const gold = goldByIdx.get(Number(segment.segment_idx)) || {};
+    const accepted = gold.accept_auto === true || episode.review.accept_auto_subtasks === true;
+    const start = gold.start_step ?? segment.start_step;
+    const end = gold.end_step ?? segment.end_step;
+    const text = gold.subtask_text || segment.subtask_text || '';
+    const card = document.createElement('div');
+    card.className = 'editor-card boundary-row';
+    card.dataset.segmentIdx = segment.segment_idx;
+    card.innerHTML = `
+      <h4>segment ${segment.segment_idx}: ${escapeHtml(segment.subtask_text || '')}</h4>
+      <label><input type="checkbox" class="boundary-accept" ${accepted ? 'checked' : ''}> accept auto boundary</label>
+      <div class="editor-grid">
+        <input type="number" class="boundary-start" min="0" max="${Math.max(0, (episode.num_steps || 1) - 1)}" value="${start}">
+        <input type="number" class="boundary-end" min="0" max="${Math.max(0, (episode.num_steps || 1) - 1)}" value="${end}">
+        <input type="text" class="boundary-text" value="${escapeAttr(text)}">
+      </div>
+    `;
+    root.appendChild(card);
+  }
+  document.getElementById('acceptSubtasks').onchange = (event) => {
+    for (const checkbox of document.querySelectorAll('.boundary-accept')) {
+      checkbox.checked = event.target.checked;
+    }
+  };
+  for (const input of document.querySelectorAll('.boundary-start, .boundary-end, .boundary-text')) {
+    input.addEventListener('input', () => {
+      input.closest('.boundary-row').querySelector('.boundary-accept').checked = false;
+      document.getElementById('acceptSubtasks').checked = false;
+    });
+  }
+}
+
+function renderSubgoalEditor() {
+  const root = document.getElementById('subgoalEditor');
+  root.innerHTML = '';
+  const goldByIdx = new Map((episode.review.gold_subgoals || []).map(item => [Number(item.segment_idx), item]));
+  for (const subgoal of episode.subgoals || []) {
+    const gold = goldByIdx.get(Number(subgoal.segment_idx)) || {};
+    const accepted = gold.accept_auto === true || episode.review.accept_auto_subgoals === true;
+    const frame = gold.frame_idx ?? subgoal.frame_idx ?? 0;
+    const card = document.createElement('div');
+    card.className = 'editor-card subgoal-row';
+    card.dataset.segmentIdx = subgoal.segment_idx;
+    card.innerHTML = `
+      <h4>segment ${subgoal.segment_idx}: auto frame ${subgoal.frame_idx ?? 'n/a'}</h4>
+      <label><input type="checkbox" class="subgoal-accept" ${accepted ? 'checked' : ''}> accept auto subgoal frame</label>
+      <div class="subgoal-grid">
+        <input type="number" class="subgoal-frame" min="0" max="${Math.max(0, (episode.num_steps || 1) - 1)}" value="${frame}">
+        <button type="button" class="secondary" onclick="useCurrentFrame(${Number(subgoal.segment_idx)})">Use current</button>
+        <span class="muted">${escapeHtml(subgoal.subtask_text || '')}</span>
+      </div>
+    `;
+    root.appendChild(card);
+  }
+  document.getElementById('acceptSubgoals').onchange = (event) => {
+    for (const checkbox of document.querySelectorAll('.subgoal-accept')) {
+      checkbox.checked = event.target.checked;
+    }
+  };
+  for (const input of document.querySelectorAll('.subgoal-frame')) {
+    input.addEventListener('input', () => {
+      input.closest('.subgoal-row').querySelector('.subgoal-accept').checked = false;
+      document.getElementById('acceptSubgoals').checked = false;
+    });
+  }
 }
 
 function renderSubgoals() {
@@ -789,6 +917,8 @@ async function saveReview(advance) {
     accept_auto_metadata: document.getElementById('acceptMeta').checked,
     accept_auto_subtasks: document.getElementById('acceptSubtasks').checked,
     accept_auto_subgoals: document.getElementById('acceptSubgoals').checked,
+    subtasks: collectBoundaryCorrections(),
+    subgoals: collectSubgoalCorrections(),
     reason: document.getElementById('reason').value,
     notes: document.getElementById('notes').value
   };
@@ -803,6 +933,37 @@ async function saveReview(advance) {
   } else {
     await loadEpisode(episode.episode_id);
   }
+}
+
+function collectBoundaryCorrections() {
+  return Array.from(document.querySelectorAll('.boundary-row')).map(row => ({
+    segment_idx: Number(row.dataset.segmentIdx),
+    accept_auto: row.querySelector('.boundary-accept').checked,
+    start_step: Number(row.querySelector('.boundary-start').value),
+    end_step: Number(row.querySelector('.boundary-end').value),
+    subtask_text: row.querySelector('.boundary-text').value
+  }));
+}
+
+function collectSubgoalCorrections() {
+  return Array.from(document.querySelectorAll('.subgoal-row')).map(row => ({
+    segment_idx: Number(row.dataset.segmentIdx),
+    accept_auto: row.querySelector('.subgoal-accept').checked,
+    frame_idx: Number(row.querySelector('.subgoal-frame').value)
+  }));
+}
+
+function useCurrentFrame(segmentIdx) {
+  const row = Array.from(document.querySelectorAll('.subgoal-row')).find(item => Number(item.dataset.segmentIdx) === Number(segmentIdx));
+  if (!row) return;
+  row.querySelector('.subgoal-accept').checked = false;
+  row.querySelector('.subgoal-frame').value = currentVideoStep();
+}
+
+function currentVideoStep() {
+  const video = document.getElementById('video');
+  const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+  return Math.round((video.currentTime / duration) * Math.max(1, (episode.num_steps || 1) - 1));
 }
 
 function firstUnreviewed() {
@@ -831,6 +992,10 @@ function fmt(value) {
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+
+function escapeAttr(text) {
+  return escapeHtml(text).replace(/`/g, '&#096;');
 }
 
 document.getElementById('video').addEventListener('timeupdate', updateActiveSubtask);
@@ -912,6 +1077,30 @@ def _all_accept_values(items: list[dict[str, Any]]) -> bool | None:
     if any(value is None for value in values):
         return None
     return all(bool(value) for value in values)
+
+
+def _subtask_reviewed(item: dict[str, Any]) -> bool:
+    if item.get("accept_auto") is True:
+        return True
+    if item.get("accept_auto") is False:
+        return item.get("start_step") is not None and item.get("end_step") is not None
+    return False
+
+
+def _subgoal_reviewed(item: dict[str, Any]) -> bool:
+    if item.get("accept_auto") is True:
+        return True
+    if item.get("accept_auto") is False:
+        return item.get("frame_idx") is not None
+    return False
+
+
+def _list_or_none(value: Any) -> list[dict[str, Any]] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _jsonable(value: Any) -> Any:
