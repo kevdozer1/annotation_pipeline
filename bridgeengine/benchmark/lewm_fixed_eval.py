@@ -27,6 +27,20 @@ def evaluate_fixed_heldout(
     per-seed random 90/10 split. The dataset passed here should already be the
     preregistered fixed held-out HDF5.
     """
+    run_dir = Path(run_dir)
+    cfg_path = run_dir / "config_snapshot.yaml"
+    if cfg_path.exists():
+        cfg_probe = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+        if cfg_probe.get("benchmark_paradigm") == "bridgeengine_pi07":
+            from bridgeengine.benchmark.pi07_fixed import evaluate_pi07_run
+
+            return evaluate_pi07_run(
+                run_dir=run_dir,
+                dataset_name=dataset_name,
+                data_cache_dir=data_cache_dir,
+                split_file=split_file,
+                device=device,
+            )
     _attach_lewm_src(lewm_root)
     import torch
     import stable_pretraining as spt
@@ -36,8 +50,6 @@ def evaluate_fixed_heldout(
     from stable_worldmodel.wm.loss import SIGReg
     from stable_worldmodel.wm.utils import load_pretrained
 
-    run_dir = Path(run_dir)
-    cfg_path = run_dir / "config_snapshot.yaml"
     if not cfg_path.exists():
         raise FileNotFoundError(f"config_snapshot.yaml not found under {run_dir}")
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
