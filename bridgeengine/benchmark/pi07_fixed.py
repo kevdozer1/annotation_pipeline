@@ -17,10 +17,12 @@ import torch
 import yaml
 
 from bridgeengine.benchmark.head_to_head_runner import (
+    DEFAULT_LEWM_ROOT,
     DEFAULT_PLAN_DIR,
     DEFAULT_PRETRAINED,
     DEFAULT_SEEDS,
     DEFAULT_SIZES,
+    _lewm_config,
 )
 from bridgeengine.benchmark.train_lewm import (
     FEATURE_DIM,
@@ -48,8 +50,12 @@ from bridgeengine.paths import data_root as resolve_data_root
 PI07_CONDITIONS: dict[str, dict[str, Any]] = {
     "P0_pi07_baseline": {
         "family": "baseline",
-        "label": "pi0.7 task baseline",
-        "note": "Task text only through the BridgeEngine conditioning adapter.",
+        "label": "canonical native LeWM baseline",
+        "note": (
+            "No pi0.7 conditioning and no auxiliary heads. This intentionally "
+            "uses the native LeWM CV trainer/evaluator so the baseline is "
+            "comparable to A_baseline instead of a separate BridgeEngine adapter model."
+        ),
     },
     "P1_pi07_subtask_text": {
         "family": "rich_text",
@@ -93,7 +99,9 @@ def prepare_pi07_manifest(
     root = resolve_data_root(data_root)
     cuts_root = out / "pi07_cuts"
     runs_root = out / "runs"
+    configs_root = out / "configs"
     out.mkdir(parents=True, exist_ok=True)
+    configs_root.mkdir(parents=True, exist_ok=True)
     commands: list[dict[str, Any]] = []
     cuts: list[str] = []
     for size in sizes:
@@ -109,34 +117,62 @@ def prepare_pi07_manifest(
         for condition_name, condition in PI07_CONDITIONS.items():
             for seed in seeds:
                 run_dir = runs_root / f"scale_{int(size)}" / f"{condition_name}_seed{int(seed)}"
-                train_cmd = [
-                    sys.executable,
-                    "-m",
-                    "bridgeengine.benchmark.pi07_fixed",
-                    "train",
-                    "--cut-path",
-                    str(cut_path),
-                    "--split-file",
-                    str(split_file),
-                    "--family",
-                    condition["family"],
-                    "--condition-name",
-                    condition_name,
-                    "--run-dir",
-                    str(run_dir),
-                    "--pretrained-path",
-                    str(pretrained_path),
-                    "--seed",
-                    str(int(seed)),
-                    "--max-epochs",
-                    str(int(max_epochs)),
-                    "--batch-size",
-                    str(int(batch_size)),
-                    "--lr",
-                    str(float(lr)),
-                    "--sigreg-weight",
-                    str(float(sigreg_weight)),
-                ]
+                if condition_name == "P0_pi07_baseline":
+                    baseline_cfg = _lewm_config(
+                        condition={"condition_name": condition_name, "auxiliary_heads": {}},
+                        dataset_name=f"be_h2h_scale_{int(size)}_train",
+                        data_cache_dir=out,
+                        pretrained_path=str(pretrained_path),
+                        max_epochs=int(max_epochs),
+                        batch_size=int(batch_size),
+                        lr=float(lr),
+                    )
+                    baseline_cfg["sigreg_weight"] = float(sigreg_weight)
+                    cfg_path = configs_root / f"scale_{int(size)}_{condition_name}.yaml"
+                    cfg_path.write_text(yaml.safe_dump(baseline_cfg, sort_keys=False), encoding="utf-8")
+                    train_cmd = [
+                        sys.executable,
+                        str(Path(DEFAULT_LEWM_ROOT) / "scripts" / "finetune_with_aux.py"),
+                        "--config",
+                        str(cfg_path),
+                        "--seed",
+                        str(int(seed)),
+                        "--output-dir",
+                        str(run_dir),
+                    ]
+                    paradigm = "shared_native_baseline"
+                    canonical_baseline = True
+                else:
+                    train_cmd = [
+                        sys.executable,
+                        "-m",
+                        "bridgeengine.benchmark.pi07_fixed",
+                        "train",
+                        "--cut-path",
+                        str(cut_path),
+                        "--split-file",
+                        str(split_file),
+                        "--family",
+                        condition["family"],
+                        "--condition-name",
+                        condition_name,
+                        "--run-dir",
+                        str(run_dir),
+                        "--pretrained-path",
+                        str(pretrained_path),
+                        "--seed",
+                        str(int(seed)),
+                        "--max-epochs",
+                        str(int(max_epochs)),
+                        "--batch-size",
+                        str(int(batch_size)),
+                        "--lr",
+                        str(float(lr)),
+                        "--sigreg-weight",
+                        str(float(sigreg_weight)),
+                    ]
+                    paradigm = "bridgeengine_pi07"
+                    canonical_baseline = False
                 eval_cmd = [
                     sys.executable,
                     "-m",
@@ -158,7 +194,8 @@ def prepare_pi07_manifest(
                         "condition": condition_name,
                         "family": condition["family"],
                         "label": condition["label"],
-                        "paradigm": "bridgeengine_pi07",
+                        "paradigm": paradigm,
+                        "canonical_baseline": canonical_baseline,
                         "seed": int(seed),
                         "run_dir": str(run_dir),
                         "cut_path": str(cut_path),
@@ -186,7 +223,8 @@ def prepare_pi07_manifest(
         "mechanism_disclosure": (
             "BridgeEngine pi0.7 signals are conditioning inputs. The LeWM CV signals "
             "are auxiliary prediction targets. This runner compares annotation strategies, "
-            "not a pure signal-content injection."
+            "not a pure signal-content injection. The P0 baseline is a shared native LeWM "
+            "baseline with no conditioning and no auxiliary heads."
         ),
     }
     manifest_path = out / "pi07_command_manifest.json"
@@ -498,12 +536,22 @@ def run_pi07_manifest(
     clean_stale_runs: bool = True,
 ) -> None:
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-    cells = [cmd for cmd in manifest["commands"] if cmd.get("paradigm") == "bridgeengine_pi07"]
+    cells = [
+        cmd
+        for cmd in manifest["commands"]
+        if cmd.get("paradigm") in {"bridgeengine_pi07", "shared_native_baseline"}
+    ]
     if max_cells is not None:
         cells = cells[: int(max_cells)]
     for cell in cells:
         run_dir = Path(cell["run_dir"])
         eval_json = run_dir / "fixed_eval.json"
+        if cell.get("canonical_baseline") and eval_json.exists():
+            existing = json.loads(eval_json.read_text(encoding="utf-8"))
+            if existing.get("paradigm") == "bridgeengine_pi07":
+                print(f"[clean invalid adapter baseline] {run_dir}")
+                _safe_rmtree(run_dir)
+                eval_json = run_dir / "fixed_eval.json"
         if skip_existing and eval_json.exists():
             print(f"[skip] {eval_json}")
             continue
@@ -511,9 +559,12 @@ def run_pi07_manifest(
             print(f"[clean stale] {run_dir}")
             _safe_rmtree(run_dir)
         run_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[train pi07] scale={cell['scale_n']} condition={cell['condition']} seed={cell['seed']}")
+        print(
+            f"[train {cell.get('paradigm')}] "
+            f"scale={cell['scale_n']} condition={cell['condition']} seed={cell['seed']}"
+        )
         subprocess.run(cell["train_cmd"], check=True)
-        print(f"[eval pi07] {run_dir}")
+        print(f"[eval {cell.get('paradigm')}] {run_dir}")
         subprocess.run(cell["eval_cmd"], check=True)
         if cleanup_epoch_checkpoints:
             _cleanup_epoch_checkpoints(run_dir)
