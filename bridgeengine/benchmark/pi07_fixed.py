@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,15 @@ PI07_CONDITIONS: dict[str, dict[str, Any]] = {
             "No pi0.7 conditioning and no auxiliary heads. This intentionally "
             "uses the native LeWM CV trainer/evaluator so the baseline is "
             "comparable to A_baseline instead of a separate BridgeEngine adapter model."
+        ),
+    },
+    "P_adapter_null": {
+        "family": "adapter_null",
+        "label": "conditioning adapter null control",
+        "note": (
+            "The BridgeEngine conditioning adapter is active, but the conditioning "
+            "feature vector is zeroed and subgoal input is disabled. This isolates "
+            "adapter overhead from useful pi0.7 annotation content."
         ),
     },
     "P1_pi07_subtask_text": {
@@ -247,7 +257,14 @@ def train_pi07_cell(
     sigreg_weight: float = 0.09,
     device: str = "cuda",
 ) -> dict[str, Any]:
-    if family not in {"baseline", "rich_text", "rich_text_metadata", "rich_text_subgoal", "rich_text_metadata_subgoal"}:
+    if family not in {
+        "adapter_null",
+        "baseline",
+        "rich_text",
+        "rich_text_metadata",
+        "rich_text_subgoal",
+        "rich_text_metadata_subgoal",
+    }:
         raise ValueError(f"Unknown pi0.7 family: {family}")
     start = time.perf_counter()
     _seed_everything(seed)
@@ -272,16 +289,13 @@ def train_pi07_cell(
         "precision": "bf16-mixed",
         "seed": int(seed),
         "freeze": "none",
+        "native_training_loop": True,
         "conditioning_mechanism": "add learned prompt/subgoal adapter to context latent before predict",
     }
     (run_dir / "config_snapshot.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
     device_obj = torch.device(device if device == "cpu" or torch.cuda.is_available() else "cpu")
-    model, latent_dim = _load_base_lewm(pretrained_path, device_obj)
-    conditioner = PromptConditioner(FEATURE_DIM, latent_dim).to(device_obj)
-    model.train()
-    conditioner.train()
     train_ids, _, _ = _load_split_ids(cut_path, split_file)
-    train_data = Pi07H5WindowDataset.from_split(
+    train_data = Pi07NativeWindowDataset.from_split(
         cut_path=Path(cut_path),
         split_file=Path(split_file),
         split_key="train_episode_ids",
@@ -291,38 +305,82 @@ def train_pi07_cell(
     )
     if not train_data.records:
         raise ValueError("No train windows for pi0.7 fixed-split cell.")
+
+    import lightning as pl
+    import stable_pretraining as spt
     from stable_worldmodel.wm.loss import SIGReg
 
-    sigreg = SIGReg(knots=17, num_proj=1024).to(device_obj)
-    params = list(model.parameters()) + list(conditioner.parameters())
-    optimizer = torch.optim.AdamW(params, lr=float(lr), weight_decay=1e-4)
-    rng = random.Random(seed)
-    for epoch in range(int(max_epochs)):
-        indices = list(range(len(train_data)))
-        rng.shuffle(indices)
-        for batch_indices in _chunks(indices, int(batch_size)):
-            batch = train_data.batch(batch_indices)
-            loss, _ = pi07_batch_loss(
-                model=model,
-                conditioner=conditioner,
-                batch=batch,
-                family=family,
-                sigreg=sigreg,
-                sigreg_weight=float(sigreg_weight),
-                device=device_obj,
-                rng=random.Random(seed * 1_000_003 + epoch * 997 + batch_indices[0]),
-                train=True,
-            )
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(params, 1.0)
-            optimizer.step()
+    pl.seed_everything(seed, workers=True)
+    model, latent_dim = _load_base_lewm(pretrained_path, device_obj)
+    conditioner = PromptConditioner(FEATURE_DIM, latent_dim)
+    conditioned_model = Pi07ConditionedLeWM(
+        base_model=model,
+        conditioner=conditioner,
+        family=family,
+        seed=seed,
+    ).to(device_obj)
+
+    split_rng = torch.Generator().manual_seed(int(seed))
+    train_set, val_set = spt.data.random_split(train_data, lengths=[0.9, 0.1], generator=split_rng)
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=int(batch_size),
+        shuffle=True,
+        num_workers=0,
+        drop_last=True,
+        pin_memory=True,
+        generator=split_rng,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_set,
+        batch_size=int(batch_size),
+        shuffle=False,
+        num_workers=0,
+        drop_last=False,
+    )
+
+    sigreg = SIGReg(knots=17, num_proj=1024)
+    optimizers = {
+        "model_opt": {
+            "modules": "model",
+            "optimizer": {"type": "AdamW", "lr": float(lr), "weight_decay": 1e-3},
+            "scheduler": {"type": "LinearWarmupCosineAnnealingLR"},
+            "interval": "epoch",
+        },
+    }
+    forward_fn = partial(
+        pi07_native_forward,
+        history_size=HISTORY_SIZE,
+        num_preds=1,
+        sigreg_weight=float(sigreg_weight),
+    )
+    lit_module = spt.Module(
+        model=conditioned_model,
+        sigreg=sigreg,
+        forward=forward_fn,
+        optim=optimizers,
+    )
+    data_module = spt.data.DataModule(train=train_loader, val=val_loader)
+
+    trainer = pl.Trainer(
+        max_epochs=int(max_epochs),
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        devices=1,
+        precision="bf16-mixed",
+        gradient_clip_val=1.0,
+        callbacks=[],
+        num_sanity_val_steps=1,
+        enable_checkpointing=False,
+        logger=False,
+        default_root_dir=str(run_dir),
+    )
+    trainer.fit(lit_module, data_module)
     ckpt_dir = run_dir / "checkpoints" / "final"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
-            "model_state_dict": model.state_dict(),
-            "conditioner_state_dict": conditioner.state_dict(),
+            "model_state_dict": conditioned_model.base_model.state_dict(),
+            "conditioner_state_dict": conditioned_model.conditioner.state_dict(),
             "latent_dim": int(latent_dim),
             "feature_dim": int(FEATURE_DIM),
             "family": family,
@@ -337,12 +395,18 @@ def train_pi07_cell(
         "seed": int(seed),
         "train_episode_count": len(train_ids),
         "train_windows": len(train_data),
+        "train_samples": len(train_set),
+        "val_samples": len(val_set),
         "training_time_sec": round(elapsed, 3),
         "device": str(device_obj),
         "max_epochs": int(max_epochs),
         "batch_size": int(batch_size),
         "lr": float(lr),
         "sigreg_weight": float(sigreg_weight),
+        "native_training_loop": True,
+        "optimizer": "AdamW",
+        "weight_decay": 1e-3,
+        "scheduler": "LinearWarmupCosineAnnealingLR",
     }
     (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return metadata
@@ -498,6 +562,138 @@ class Pi07H5WindowDataset:
         return batch
 
 
+class Pi07NativeWindowDataset:
+    """HDF5Dataset wrapper that carries BridgeEngine conditioning fields.
+
+    This preserves the native LeWM data path used by ``finetune_with_aux.py``:
+    the base pixels/action/observation tensors come directly from
+    ``stable_worldmodel.data.dataset.HDF5Dataset`` with the same transforms. The
+    wrapper only appends small conditioning metadata and optional subgoal images.
+    """
+
+    def __init__(
+        self,
+        *,
+        dataset_name: str,
+        data_cache_dir: str | Path,
+        episode_ids: list[str],
+        cut_path: Path,
+        cfg: dict[str, Any],
+    ) -> None:
+        from stable_worldmodel.data.dataset import HDF5Dataset
+
+        self.dataset_name = dataset_name
+        self.data_cache_dir = Path(data_cache_dir)
+        self.cut_path = cut_path
+        self.cfg = dict(cfg)
+        self.dataset = HDF5Dataset(
+            name=dataset_name,
+            cache_dir=self.data_cache_dir,
+            num_steps=int(cfg.get("history_size", HISTORY_SIZE)) + int(cfg.get("num_preds", 1)),
+            frameskip=int(cfg.get("frameskip", 1)),
+            keys_to_load=["pixels", "action", "observation"],
+            keys_to_cache=["action", "observation"],
+        )
+        self.dataset.transform = _build_transform(self.dataset)
+        self.records = _records_for_h5_order(cut_path, episode_ids, dataset_name, self.data_cache_dir)
+        if len(self.records) != len(self.dataset):
+            raise ValueError(
+                f"Conditioning records do not match HDF5Dataset windows for {dataset_name}: "
+                f"records={len(self.records)} dataset={len(self.dataset)}"
+            )
+
+    @classmethod
+    def from_split(
+        cls,
+        *,
+        cut_path: Path,
+        split_file: Path,
+        split_key: str,
+        dataset_name: str,
+        data_cache_dir: str | Path,
+        cfg: dict[str, Any],
+    ) -> "Pi07NativeWindowDataset":
+        split = json.loads(split_file.read_text(encoding="utf-8"))
+        return cls(
+            dataset_name=dataset_name,
+            data_cache_dir=data_cache_dir,
+            episode_ids=[str(x) for x in split[split_key]],
+            cut_path=cut_path,
+            cfg=cfg,
+        )
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        sample = dict(self.dataset[int(index)])
+        record = self.records[int(index)]
+        sample["_be_episode_id"] = record.episode_id
+        sample["_be_start_idx"] = torch.as_tensor(record.start_idx, dtype=torch.long)
+        sample["_be_task"] = record.task
+        sample["_be_subtask_text"] = record.subtask_text
+        sample["_be_segment_idx"] = torch.as_tensor(-1 if record.segment_idx is None else record.segment_idx, dtype=torch.long)
+        sample["_be_metadata_json"] = json.dumps(record.metadata, sort_keys=True)
+        sample["_be_subgoal_image_path"] = record.subgoal_image_path or ""
+        if record.subgoal_image_path and Path(record.subgoal_image_path).exists():
+            sample["subgoal_pixels"] = _preprocess_image(Path(record.subgoal_image_path), torch)
+            sample["subgoal_mask"] = torch.as_tensor(1.0, dtype=torch.float32)
+        else:
+            sample["subgoal_pixels"] = torch.zeros(3, 224, 224, dtype=torch.float32)
+            sample["subgoal_mask"] = torch.as_tensor(0.0, dtype=torch.float32)
+        return sample
+
+
+class Pi07ConditionedLeWM(torch.nn.Module):
+    def __init__(self, *, base_model, conditioner, family: str, seed: int) -> None:
+        super().__init__()
+        self.base_model = base_model
+        self.conditioner = conditioner
+        self.family = family
+        self.condition_rng = random.Random(int(seed))
+
+    def encode(self, info: dict[str, Any]) -> dict[str, Any]:
+        return self.base_model.encode(info)
+
+    def predict(self, emb, act_emb):
+        return self.base_model.predict(emb, act_emb)
+
+
+def pi07_native_forward(self, batch, stage, history_size, num_preds, sigreg_weight):
+    """Native LeWM Lightning forward with one conditioning-adapter insertion."""
+
+    conditioned_model: Pi07ConditionedLeWM = self.model
+    batch["action"] = torch.nan_to_num(batch["action"], 0.0)
+    output = conditioned_model.encode(batch)
+    emb = output["emb"]
+    act_emb = output["act_emb"]
+    records = _records_from_collated_batch(batch)
+    train = str(stage).lower().startswith("train")
+    rng = conditioned_model.condition_rng if train else random.Random(0)
+    features = _pi07_condition_features(records, conditioned_model.family, rng, train).to(emb.device)
+    subgoal_latent, subgoal_mask = _pi07_subgoal_condition(
+        conditioned_model.base_model,
+        batch,
+        conditioned_model.family,
+        emb.device,
+        rng,
+        train,
+    )
+    condition = conditioned_model.conditioner(features, subgoal_latent, subgoal_mask)
+    ctx_emb = emb[:, :history_size] + condition[:, None, :]
+    ctx_act = act_emb[:, :history_size]
+    tgt_emb = emb[:, num_preds:]
+    pred_emb = conditioned_model.predict(ctx_emb, ctx_act)
+
+    output["pred_loss"] = (pred_emb - tgt_emb).pow(2).mean()
+    output["sigreg_loss"] = self.sigreg(emb.transpose(0, 1))
+    output["base_loss"] = output["pred_loss"] + float(sigreg_weight) * output["sigreg_loss"]
+    output["loss"] = output["base_loss"]
+    losses_dict = {f"{stage}/{key}": value.detach() for key, value in output.items() if "loss" in key}
+    self.log_dict(losses_dict, on_step=True, sync_dist=True)
+    return output
+
+
 def pi07_batch_loss(
     *,
     model,
@@ -552,6 +748,13 @@ def run_pi07_manifest(
                 print(f"[clean invalid adapter baseline] {run_dir}")
                 _safe_rmtree(run_dir)
                 eval_json = run_dir / "fixed_eval.json"
+        if cell.get("paradigm") == "bridgeengine_pi07" and eval_json.exists():
+            cfg_path = run_dir / "config_snapshot.yaml"
+            cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+            if not cfg.get("native_training_loop"):
+                print(f"[clean invalid custom-loop pi07 result] {run_dir}")
+                _safe_rmtree(run_dir)
+                eval_json = run_dir / "fixed_eval.json"
         if skip_existing and eval_json.exists():
             print(f"[skip] {eval_json}")
             continue
@@ -568,6 +771,99 @@ def run_pi07_manifest(
         subprocess.run(cell["eval_cmd"], check=True)
         if cleanup_epoch_checkpoints:
             _cleanup_epoch_checkpoints(run_dir)
+
+
+def summarize_pi07_results(output_dir: str | Path = "D:/lewm_runs/bridgeengine_head_to_head/run_100") -> dict[str, Any]:
+    out = Path(output_dir)
+    runs_root = out / "runs"
+    rows: list[dict[str, Any]] = []
+    for path in sorted(runs_root.glob("scale_*/*/fixed_eval.json")):
+        run_name = path.parent.name
+        if "_seed" not in run_name:
+            continue
+        condition_name, seed_text = run_name.rsplit("_seed", 1)
+        if condition_name not in PI07_CONDITIONS:
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows.append(
+            {
+                "scale_n": int(path.parent.parent.name.replace("scale_", "")),
+                "condition": condition_name,
+                "family": payload.get("family") or PI07_CONDITIONS[condition_name]["family"],
+                "label": PI07_CONDITIONS[condition_name]["label"],
+                "paradigm": payload.get("paradigm") or "shared_native_baseline",
+                "seed": int(seed_text),
+                "latent_mse": float(payload["latent_mse"]),
+                "heldout_windows": int(payload.get("heldout_windows", 0) or 0),
+                "run_dir": str(path.parent),
+            }
+        )
+    if not rows:
+        raise FileNotFoundError(f"No pi0.7 fixed_eval.json files found under {runs_root}")
+
+    results = pd.DataFrame(rows).sort_values(["scale_n", "condition", "seed"]).reset_index(drop=True)
+    for column in (
+        "delta_vs_native_baseline",
+        "delta_pct_vs_native_baseline",
+        "delta_vs_adapter_null",
+        "delta_pct_vs_adapter_null",
+    ):
+        results[column] = np.nan
+
+    for (_, _), index_values in results.groupby(["scale_n", "seed"]).groups.items():
+        idx = list(index_values)
+        group = results.loc[idx]
+        native = group[group["condition"] == "P0_pi07_baseline"]
+        adapter = group[group["condition"] == "P_adapter_null"]
+        native_mse = float(native["latent_mse"].iloc[0]) if not native.empty else float("nan")
+        adapter_mse = float(adapter["latent_mse"].iloc[0]) if not adapter.empty else float("nan")
+        if np.isfinite(native_mse):
+            results.loc[idx, "delta_vs_native_baseline"] = results.loc[idx, "latent_mse"] - native_mse
+            results.loc[idx, "delta_pct_vs_native_baseline"] = (
+                (results.loc[idx, "latent_mse"] - native_mse) / native_mse * 100.0
+            )
+        if np.isfinite(adapter_mse):
+            results.loc[idx, "delta_vs_adapter_null"] = results.loc[idx, "latent_mse"] - adapter_mse
+            results.loc[idx, "delta_pct_vs_adapter_null"] = (
+                (results.loc[idx, "latent_mse"] - adapter_mse) / adapter_mse * 100.0
+            )
+
+    detailed_csv = out / "pi07_results_with_deltas.csv"
+    results.to_csv(detailed_csv, index=False)
+    grouped = (
+        results.groupby(["scale_n", "condition", "family", "label"], dropna=False)
+        .agg(
+            mean_latent_mse=("latent_mse", "mean"),
+            std_latent_mse=("latent_mse", "std"),
+            mean_delta_vs_native_baseline=("delta_vs_native_baseline", "mean"),
+            mean_delta_pct_vs_native_baseline=("delta_pct_vs_native_baseline", "mean"),
+            mean_delta_vs_adapter_null=("delta_vs_adapter_null", "mean"),
+            mean_delta_pct_vs_adapter_null=("delta_pct_vs_adapter_null", "mean"),
+            seeds_completed=("seed", "nunique"),
+        )
+        .reset_index()
+        .sort_values(["scale_n", "mean_latent_mse"])
+    )
+    grouped_csv = out / "pi07_summary_by_condition.csv"
+    grouped.to_csv(grouped_csv, index=False)
+
+    missing: list[dict[str, Any]] = []
+    observed = {(int(row.scale_n), str(row.condition), int(row.seed)) for row in results.itertuples(index=False)}
+    manifest_path = out / "pi07_command_manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for cell in manifest.get("commands", []):
+            if cell.get("condition") not in PI07_CONDITIONS:
+                continue
+            key = (int(cell["scale_n"]), str(cell["condition"]), int(cell["seed"]))
+            if key not in observed:
+                missing.append({"scale_n": key[0], "condition": key[1], "seed": key[2]})
+    return {
+        "detailed_csv": str(detailed_csv),
+        "grouped_csv": str(grouped_csv),
+        "rows": int(len(results)),
+        "missing_cells": missing,
+    }
 
 
 def _build_transform(dataset):
@@ -630,6 +926,8 @@ def _records_for_h5_order(cut_path: Path, expected_ids: list[str], dataset_name:
 
 
 def _pi07_condition_features(records: list[WindowRecord], family: str, rng: random.Random, train: bool):
+    if family == "adapter_null":
+        return torch.zeros(len(records), FEATURE_DIM, dtype=torch.float32)
     mapped = "rich_text_metadata_subgoal" if family == "rich_text_subgoal" else family
     features = _condition_features(records, mapped, rng, train, torch)
     if family == "rich_text_subgoal":
@@ -649,6 +947,31 @@ def _pi07_condition_features(records: list[WindowRecord], family: str, rng: rand
         ]
         features = _condition_features(metadata_free, "rich_text", rng, train, torch)
     return features
+
+
+def _records_from_collated_batch(batch: dict[str, Any]) -> list[WindowRecord]:
+    episode_ids = list(batch["_be_episode_id"])
+    tasks = list(batch["_be_task"])
+    subtasks = list(batch["_be_subtask_text"])
+    metadata_json = list(batch["_be_metadata_json"])
+    start_indices = batch["_be_start_idx"].detach().cpu().tolist()
+    segment_indices = batch["_be_segment_idx"].detach().cpu().tolist()
+    subgoal_paths = list(batch["_be_subgoal_image_path"])
+    records: list[WindowRecord] = []
+    for idx, episode_id in enumerate(episode_ids):
+        segment_idx = int(segment_indices[idx])
+        records.append(
+            WindowRecord(
+                episode_id=str(episode_id),
+                start_idx=int(start_indices[idx]),
+                task=str(tasks[idx]),
+                subtask_text=str(subtasks[idx]),
+                segment_idx=None if segment_idx < 0 else segment_idx,
+                metadata=json.loads(metadata_json[idx]) if metadata_json[idx] else {},
+                subgoal_image_path=str(subgoal_paths[idx]) if subgoal_paths[idx] else None,
+            )
+        )
+    return records
 
 
 def _pi07_subgoal_condition(model, batch: dict[str, Any], family: str, device, rng: random.Random, train: bool):
@@ -775,6 +1098,9 @@ def main() -> None:
     run.add_argument("--keep-epoch-checkpoints", action="store_true")
     run.add_argument("--keep-stale-runs", action="store_true")
 
+    summary = sub.add_parser("summarize")
+    summary.add_argument("--output-dir", default="D:/lewm_runs/bridgeengine_head_to_head/run_100")
+
     args = parser.parse_args()
     if args.cmd == "prepare":
         manifest = prepare_pi07_manifest(
@@ -815,6 +1141,8 @@ def main() -> None:
             cleanup_epoch_checkpoints=not args.keep_epoch_checkpoints,
             clean_stale_runs=not args.keep_stale_runs,
         )
+    elif args.cmd == "summarize":
+        print(json.dumps(summarize_pi07_results(args.output_dir), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

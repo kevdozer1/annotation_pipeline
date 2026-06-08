@@ -45,3 +45,8 @@ if ($MaxCells -gt 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "pi0.7 head-to-head run failed with exit code $LASTEXITCODE"
 }
+
+& $Python -m bridgeengine.benchmark.pi07_fixed summarize --output-dir $OutputDir
+if ($LASTEXITCODE -ne 0) {
+    throw "pi0.7 summary failed with exit code $LASTEXITCODE"
+}
