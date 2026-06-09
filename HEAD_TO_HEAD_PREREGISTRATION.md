@@ -251,3 +251,43 @@ Human-score and human-boundary corrected BridgeEngine pi0.7 scale curve, two see
 | 100 | 0.021839 | 0.022000 | 0.021849 | 0.020468 |
 
 At N=100, `rich_text_metadata_subgoal` is 6.28% lower mean latent MSE than the current BridgeEngine baseline. This is not yet the final perceptive-vs-pi0.7 head-to-head result.
+
+## Amendments
+
+### 2026-06-09 — Eval-validity analysis (additive, eval-only)
+
+An external review noted that every condition finetunes the full LeWM model, so each
+condition's held-out next-latent MSE is measured in its own latent geometry; a condition
+can lower raw MSE by contracting target-latent variance rather than predicting better.
+This amendment adds analyses to test that confound. It is strictly additive: no split,
+seed, rubric, or trained main-grid checkpoint was changed. Only eval-time re-scoring and a
+small auxiliary probe (trained on top of frozen world-model latents) were added.
+
+1. **Normalized paired metric.** Both fixed-split evaluators
+   (`bridgeengine.benchmark.lewm_fixed_eval` and `bridgeengine.benchmark.pi07_fixed`) now
+   also record per run the held-out mean per-dimension target-latent variance
+   (`heldout_target_variance`) and mean squared target-latent norm
+   (`heldout_target_mean_sq_norm`) in `fixed_eval.json`, and a per-window
+   `norm_sq_err = sq_err / heldout_target_variance` column in `fixed_eval_windows.csv`.
+   The paired analysis (`bridgeengine.benchmark.leak_power`) reports both raw and
+   variance-normalized paired deltas and a per-condition target-variance table. Completed
+   scale-25/50 cells were re-evaluated (eval-only) from their existing checkpoints to
+   populate these fields; raw `latent_mse` values are unchanged (deterministic re-eval).
+
+2. **Relative subgoal-leak bins.** The boundary-distance leak audit adds
+   `near_advantage_rel` / `far_advantage_rel` (bin advantage divided by mean P0 squared
+   error in the same bin) and a distance-vs-relative-advantage correlation. Stated
+   limitation: absence of near-boundary concentration rules out crude target-copying, not
+   privileged-future-information from a same-episode subgoal frame.
+
+3. **IDM action-decoding probe** (`bridgeengine.benchmark.idm`). A 2-layer MLP
+   `f(z_t, z_{t+1}) -> a_t` is trained per condition-seed on train-split encoded latents,
+   then scored on held-out windows using the model's predicted latents. Per-window action
+   MSE is logged in the `fixed_eval_windows.csv` schema (`idm_eval_windows.csv`) so the
+   existing paired machinery applies. Because the metric is in physical action units it is
+   immune to the latent-variance confound. Scope: scales 25 and 50 (the scales with a
+   complete checkpoint set); scale 100 remains excluded until its grid is complete.
+
+Results live in `LEAK_AND_POWER_REPORT.md` and the generated CSVs under the run output
+directory. No new training conditions (retrieval/generated subgoal, real text encoder)
+were started in this pass.

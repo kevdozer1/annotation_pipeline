@@ -46,7 +46,13 @@ from bridgeengine.benchmark.train_lewm import (
 )
 from bridgeengine.export.cut import export_cut
 from bridgeengine.paths import data_root as resolve_data_root
-from bridgeengine.benchmark.window_eval import mean_or_nan, weighted_mean_or_nan, write_fixed_eval_windows
+from bridgeengine.benchmark.window_eval import (
+    TargetLatentMoments,
+    mean_or_nan,
+    normalized_window_errors,
+    weighted_mean_or_nan,
+    write_fixed_eval_windows,
+)
 
 
 PI07_CONDITIONS: dict[str, dict[str, Any]] = {
@@ -450,6 +456,7 @@ def evaluate_pi07_run(
     sigreg_losses: list[float] = []
     total_losses: list[float] = []
     batch_weights: list[int] = []
+    target_moments = TargetLatentMoments()
     batch_size = int(cfg.get("batch_size", 16))
     with torch.no_grad():
         for batch_indices in _chunks(list(range(len(heldout_data))), batch_size):
@@ -473,12 +480,18 @@ def evaluate_pi07_run(
             sigreg_losses.append(float(parts["sigreg_loss"]))
             total_losses.append(float(total.item()))
             batch_weights.append(batch_count)
+            target_moments.update_from_numpy(parts["tgt_flat"])
+    target_stats = target_moments.finalize()
+    norm_window_losses = normalized_window_errors(
+        per_window_losses, target_stats["heldout_target_variance"]
+    )
     windows_csv = write_fixed_eval_windows(
         run_dir,
         per_window_records,
         per_window_losses,
         subgoal_mask=per_window_subgoal_masks,
         history_size=int(cfg.get("history_size", HISTORY_SIZE)),
+        norm_sq_err=norm_window_losses,
     )
     split_payload = json.loads(split_file_path.read_text(encoding="utf-8"))
     return {
@@ -494,6 +507,9 @@ def evaluate_pi07_run(
         "heldout_windows": len(heldout_data),
         "latent_mse": mean_or_nan(per_window_losses),
         "pred_mse": mean_or_nan(per_window_losses),
+        "norm_latent_mse": mean_or_nan(norm_window_losses),
+        "heldout_target_variance": target_stats["heldout_target_variance"],
+        "heldout_target_mean_sq_norm": target_stats["heldout_target_mean_sq_norm"],
         "sigreg_loss": weighted_mean_or_nan(sigreg_losses, batch_weights),
         "total_loss": weighted_mean_or_nan(total_losses, batch_weights),
         "fixed_eval_windows_csv": str(windows_csv),
@@ -744,6 +760,7 @@ def pi07_batch_loss(
         "sigreg_loss": float(sigreg_loss.item()),
         "per_window_sq_err": per_window.detach().cpu().tolist(),
         "subgoal_mask": subgoal_mask.detach().cpu().tolist(),
+        "tgt_flat": tgt_emb.reshape(-1, tgt_emb.shape[-1]).float().cpu().numpy(),
     }
 
 

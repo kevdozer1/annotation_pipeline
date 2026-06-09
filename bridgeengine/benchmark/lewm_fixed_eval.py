@@ -10,7 +10,13 @@ import numpy as np
 import yaml
 
 from bridgeengine.benchmark.train_lewm import WindowRecord
-from bridgeengine.benchmark.window_eval import mean_or_nan, weighted_mean_or_nan, write_fixed_eval_windows
+from bridgeengine.benchmark.window_eval import (
+    TargetLatentMoments,
+    mean_or_nan,
+    normalized_window_errors,
+    weighted_mean_or_nan,
+    write_fixed_eval_windows,
+)
 
 
 DEFAULT_LEWM_ROOT = Path("C:/Users/Kevin/projects/LeWM_testbed")
@@ -102,6 +108,7 @@ def evaluate_fixed_heldout(
     total_losses = []
     batch_weights: list[int] = []
     aux_losses: dict[str, list[float]] = {}
+    target_moments = TargetLatentMoments()
     records = _records_for_eval_order(
         dataset_name=dataset_name,
         data_cache_dir=data_cache_dir,
@@ -132,6 +139,9 @@ def evaluate_fixed_heldout(
             base_loss = pred_loss + sigreg_weight * sigreg_loss
             aux = model.forward_aux(emb, batch)
             total = base_loss + aux["aux_total_loss"]
+            target_moments.update_from_numpy(
+                tgt_emb.reshape(-1, tgt_emb.shape[-1]).float().cpu().numpy()
+            )
             pred_losses.append(float(pred_loss.item()))
             per_window_losses.extend(float(x) for x in per_window.detach().cpu().tolist())
             sigreg_losses.append(float(sigreg_loss.item()))
@@ -140,11 +150,16 @@ def evaluate_fixed_heldout(
             for key, value in aux.items():
                 if key != "aux_total_loss" and "loss" in key:
                     aux_losses.setdefault(key, []).append(float(value.item()))
+    target_stats = target_moments.finalize()
+    norm_window_losses = normalized_window_errors(
+        per_window_losses, target_stats["heldout_target_variance"]
+    )
     windows_csv = write_fixed_eval_windows(
         run_dir,
         records,
         per_window_losses,
         history_size=history_size,
+        norm_sq_err=norm_window_losses,
     )
 
     split_payload = None
@@ -161,6 +176,9 @@ def evaluate_fixed_heldout(
         "heldout_windows": len(dataset),
         "latent_mse": mean_or_nan(per_window_losses),
         "pred_mse": mean_or_nan(per_window_losses),
+        "norm_latent_mse": mean_or_nan(norm_window_losses),
+        "heldout_target_variance": target_stats["heldout_target_variance"],
+        "heldout_target_mean_sq_norm": target_stats["heldout_target_mean_sq_norm"],
         "sigreg_loss": weighted_mean_or_nan(sigreg_losses, batch_weights),
         "total_loss": weighted_mean_or_nan(total_losses, batch_weights),
         "fixed_eval_windows_csv": str(windows_csv),
