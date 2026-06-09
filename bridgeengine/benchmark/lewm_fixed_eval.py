@@ -9,6 +9,9 @@ from typing import Any
 import numpy as np
 import yaml
 
+from bridgeengine.benchmark.train_lewm import WindowRecord
+from bridgeengine.benchmark.window_eval import mean_or_nan, weighted_mean_or_nan, write_fixed_eval_windows
+
 
 DEFAULT_LEWM_ROOT = Path("C:/Users/Kevin/projects/LeWM_testbed")
 
@@ -94,13 +97,28 @@ def evaluate_fixed_heldout(
     sigreg = SIGReg(knots=17, num_proj=1024).to(device_obj)
     sigreg_weight = float(cfg.get("sigreg_weight", 0.09))
     pred_losses = []
+    per_window_losses: list[float] = []
     sigreg_losses = []
     total_losses = []
+    batch_weights: list[int] = []
     aux_losses: dict[str, list[float]] = {}
+    records = _records_for_eval_order(
+        dataset_name=dataset_name,
+        data_cache_dir=data_cache_dir,
+        split_file=split_file,
+        history_size=history_size,
+        num_preds=num_preds,
+    )
+    if len(records) != len(dataset):
+        raise ValueError(
+            f"Window identity record count does not match held-out dataset: "
+            f"records={len(records)} dataset={len(dataset)}"
+        )
     with torch.no_grad():
         for batch in loader:
             batch = {k: v.to(device_obj) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
             batch["action"] = torch.nan_to_num(batch["action"], 0.0)
+            batch_count = int(batch["pixels"].shape[0])
             output = model.encode(batch)
             emb = output["emb"]
             act_emb = output["act_emb"]
@@ -108,17 +126,26 @@ def evaluate_fixed_heldout(
             ctx_act = act_emb[:, :history_size]
             tgt_emb = emb[:, num_preds:]
             pred_emb = model.predict(ctx_emb, ctx_act)
-            pred_loss = (pred_emb - tgt_emb).pow(2).mean()
+            per_window = (pred_emb - tgt_emb).pow(2).mean(dim=(1, 2))
+            pred_loss = per_window.mean()
             sigreg_loss = sigreg(emb.transpose(0, 1))
             base_loss = pred_loss + sigreg_weight * sigreg_loss
             aux = model.forward_aux(emb, batch)
             total = base_loss + aux["aux_total_loss"]
             pred_losses.append(float(pred_loss.item()))
+            per_window_losses.extend(float(x) for x in per_window.detach().cpu().tolist())
             sigreg_losses.append(float(sigreg_loss.item()))
             total_losses.append(float(total.item()))
+            batch_weights.append(batch_count)
             for key, value in aux.items():
                 if key != "aux_total_loss" and "loss" in key:
                     aux_losses.setdefault(key, []).append(float(value.item()))
+    windows_csv = write_fixed_eval_windows(
+        run_dir,
+        records,
+        per_window_losses,
+        history_size=history_size,
+    )
 
     split_payload = None
     if split_file:
@@ -132,10 +159,11 @@ def evaluate_fixed_heldout(
         "split_id": split_payload.get("split_id") if isinstance(split_payload, dict) else None,
         "heldout_episode_count": len(split_payload.get("heldout_episode_ids", [])) if isinstance(split_payload, dict) else None,
         "heldout_windows": len(dataset),
-        "latent_mse": float(np.mean(pred_losses)) if pred_losses else float("nan"),
-        "pred_mse": float(np.mean(pred_losses)) if pred_losses else float("nan"),
-        "sigreg_loss": float(np.mean(sigreg_losses)) if sigreg_losses else float("nan"),
-        "total_loss": float(np.mean(total_losses)) if total_losses else float("nan"),
+        "latent_mse": mean_or_nan(per_window_losses),
+        "pred_mse": mean_or_nan(per_window_losses),
+        "sigreg_loss": weighted_mean_or_nan(sigreg_losses, batch_weights),
+        "total_loss": weighted_mean_or_nan(total_losses, batch_weights),
+        "fixed_eval_windows_csv": str(windows_csv),
         "weights": str(weights),
         "device": str(device_obj),
     }
@@ -214,6 +242,72 @@ def _build_transform(dataset, keys_to_load: list[str], cfg: dict[str, Any]):
 
         transforms.append(spt.data.transforms.WrapTorchTransform(dilate_mask, source="object_mask", target="object_mask"))
     return spt.data.transforms.Compose(*transforms)
+
+
+def _records_for_eval_order(
+    *,
+    dataset_name: str,
+    data_cache_dir: str | Path,
+    split_file: str | Path | None,
+    history_size: int,
+    num_preds: int,
+) -> list[WindowRecord]:
+    data_cache_dir = Path(data_cache_dir)
+    if split_file:
+        cut_path = _infer_pi07_cut_path(dataset_name, data_cache_dir)
+        if cut_path.exists():
+            try:
+                from bridgeengine.benchmark.pi07_fixed import _records_for_h5_order
+
+                split_payload = json.loads(Path(split_file).read_text(encoding="utf-8"))
+                heldout_ids = [str(x) for x in split_payload.get("heldout_episode_ids", [])]
+                return _records_for_h5_order(cut_path, heldout_ids, dataset_name, data_cache_dir)
+            except Exception:
+                pass
+    return _basic_records_for_h5_order(dataset_name, data_cache_dir, history_size, num_preds)
+
+
+def _infer_pi07_cut_path(dataset_name: str, data_cache_dir: Path) -> Path:
+    # dataset names are be_h2h_scale_25_heldout / train.
+    parts = str(dataset_name).split("_")
+    scale = None
+    for idx, part in enumerate(parts):
+        if part == "scale" and idx + 1 < len(parts):
+            scale = parts[idx + 1]
+            break
+    if scale is None:
+        scale = next((part for part in parts if part.isdigit()), "")
+    return data_cache_dir / "pi07_cuts" / f"pi07_scale_{scale}"
+
+
+def _basic_records_for_h5_order(
+    dataset_name: str,
+    data_cache_dir: Path,
+    history_size: int,
+    num_preds: int,
+) -> list[WindowRecord]:
+    import h5py
+
+    h5_path = data_cache_dir / "datasets" / f"{dataset_name}.h5"
+    records: list[WindowRecord] = []
+    with h5py.File(h5_path, "r") as f:
+        ids = json.loads(f.attrs["bridgeengine_selected_episode_ids_json"])
+        ep_lens = [int(x) for x in f["ep_len"][:]]
+    window_size = int(history_size) + int(num_preds)
+    for episode_id, ep_len in zip(ids, ep_lens):
+        for start_idx in range(0, int(ep_len) - window_size + 1):
+            records.append(
+                WindowRecord(
+                    episode_id=str(episode_id),
+                    start_idx=int(start_idx),
+                    task=str(episode_id),
+                    subtask_text="",
+                    segment_idx=None,
+                    metadata={},
+                    subgoal_image_path=None,
+                )
+            )
+    return records
 
 
 def main() -> None:

@@ -60,6 +60,8 @@ class WindowRecord:
     segment_idx: int | None
     metadata: dict[str, Any]
     subgoal_image_path: str | None
+    segment_start_step: int | None = None
+    segment_end_step: int | None = None
 
 
 class LeWMBenchmarkError(RuntimeError):
@@ -197,6 +199,8 @@ class BridgeWindowDataset:
                     segment_idx=segment_idx,
                     metadata=metadata,
                     subgoal_image_path=subgoals.get(segment_idx),
+                    segment_start_step=_safe_int(segment.get("start_step")),
+                    segment_end_step=_safe_int(segment.get("end_step")),
                 )
             )
 

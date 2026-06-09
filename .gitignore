@@ -23,6 +23,7 @@ D:/bridgedata_v2_subset/
 *.png
 !figures/
 !figures/*.png
+!figures/**/*.png
 *.egg-info/
 streamlit.out.log
 streamlit.err.log

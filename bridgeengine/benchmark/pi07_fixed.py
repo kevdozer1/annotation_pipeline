@@ -46,6 +46,7 @@ from bridgeengine.benchmark.train_lewm import (
 )
 from bridgeengine.export.cut import export_cut
 from bridgeengine.paths import data_root as resolve_data_root
+from bridgeengine.benchmark.window_eval import mean_or_nan, weighted_mean_or_nan, write_fixed_eval_windows
 
 
 PI07_CONDITIONS: dict[str, dict[str, Any]] = {
@@ -443,8 +444,12 @@ def evaluate_pi07_run(
         cfg=cfg,
     )
     losses: list[float] = []
+    per_window_losses: list[float] = []
+    per_window_records: list[WindowRecord] = []
+    per_window_subgoal_masks: list[float] = []
     sigreg_losses: list[float] = []
     total_losses: list[float] = []
+    batch_weights: list[int] = []
     batch_size = int(cfg.get("batch_size", 16))
     with torch.no_grad():
         for batch_indices in _chunks(list(range(len(heldout_data))), batch_size):
@@ -460,9 +465,21 @@ def evaluate_pi07_run(
                 rng=random.Random(0),
                 train=False,
             )
+            batch_count = len(batch["records"])
             losses.append(float(parts["pred_loss"]))
+            per_window_losses.extend(float(x) for x in parts["per_window_sq_err"])
+            per_window_records.extend(batch["records"])
+            per_window_subgoal_masks.extend(float(x) for x in parts["subgoal_mask"])
             sigreg_losses.append(float(parts["sigreg_loss"]))
             total_losses.append(float(total.item()))
+            batch_weights.append(batch_count)
+    windows_csv = write_fixed_eval_windows(
+        run_dir,
+        per_window_records,
+        per_window_losses,
+        subgoal_mask=per_window_subgoal_masks,
+        history_size=int(cfg.get("history_size", HISTORY_SIZE)),
+    )
     split_payload = json.loads(split_file_path.read_text(encoding="utf-8"))
     return {
         "condition": str(cfg.get("condition_name", run_dir.name)),
@@ -475,10 +492,11 @@ def evaluate_pi07_run(
         "split_id": split_payload.get("split_id"),
         "heldout_episode_count": len(split_payload.get("heldout_episode_ids", [])),
         "heldout_windows": len(heldout_data),
-        "latent_mse": float(np.mean(losses)) if losses else float("nan"),
-        "pred_mse": float(np.mean(losses)) if losses else float("nan"),
-        "sigreg_loss": float(np.mean(sigreg_losses)) if sigreg_losses else float("nan"),
-        "total_loss": float(np.mean(total_losses)) if total_losses else float("nan"),
+        "latent_mse": mean_or_nan(per_window_losses),
+        "pred_mse": mean_or_nan(per_window_losses),
+        "sigreg_loss": weighted_mean_or_nan(sigreg_losses, batch_weights),
+        "total_loss": weighted_mean_or_nan(total_losses, batch_weights),
+        "fixed_eval_windows_csv": str(windows_csv),
         "weights": str(run_dir / "checkpoints" / "final" / "full_weights.pt"),
         "device": str(device_obj),
         "conditioning_mechanism": cfg.get("conditioning_mechanism"),
@@ -717,10 +735,16 @@ def pi07_batch_loss(
     history_size = HISTORY_SIZE
     pred_emb = model.predict(emb[:, :history_size] + condition[:, None, :], act_emb[:, :history_size])
     tgt_emb = emb[:, 1 : history_size + 1].detach()
-    pred_loss = torch.nn.functional.mse_loss(pred_emb, tgt_emb)
+    per_window = (pred_emb - tgt_emb).pow(2).mean(dim=(1, 2))
+    pred_loss = per_window.mean()
     sigreg_loss = sigreg(emb.transpose(0, 1))
     total = pred_loss + float(sigreg_weight) * sigreg_loss
-    return total, {"pred_loss": float(pred_loss.item()), "sigreg_loss": float(sigreg_loss.item())}
+    return total, {
+        "pred_loss": float(pred_loss.item()),
+        "sigreg_loss": float(sigreg_loss.item()),
+        "per_window_sq_err": per_window.detach().cpu().tolist(),
+        "subgoal_mask": subgoal_mask.detach().cpu().tolist(),
+    }
 
 
 def run_pi07_manifest(
@@ -920,6 +944,8 @@ def _records_for_h5_order(cut_path: Path, expected_ids: list[str], dataset_name:
                     segment_idx=segment_idx,
                     metadata=metadata,
                     subgoal_image_path=subgoals.get(segment_idx),
+                    segment_start_step=_safe_int(segment.get("start_step")),
+                    segment_end_step=_safe_int(segment.get("end_step")),
                 )
             )
     return records
@@ -942,6 +968,8 @@ def _pi07_condition_features(records: list[WindowRecord], family: str, rng: rand
                 segment_idx=r.segment_idx,
                 metadata={},
                 subgoal_image_path=r.subgoal_image_path,
+                segment_start_step=r.segment_start_step,
+                segment_end_step=r.segment_end_step,
             )
             for r in records
         ]
